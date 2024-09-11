@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1 style="text-align: center; color: #dc6900; margin-bottom: 20px;">All Members</h1>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    <div style="max-width: 600px; margin: 0 auto;">
+      {% for category, message in messages %}
+        <div class="alert alert-{{ category }}" style="background-color: #dc6900; color: white; padding: 10px; border-radius: 5px;">
+          {{ message }}
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endwith %}
+
+<form action="{{ url_for('send_all_reminders') }}" method="POST" style="text-align: center; margin-bottom: 20px;">
+  <button type="submit" style="background-color: #dc6900; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer;">
+      Send Reminders to All Members
+  </button>
+</form>
+
+
+<div style="max-width: 1000px; margin: 0 auto; background-color: #ffffff; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);">
+    <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+        <thead>
+            <tr style="background-color: #dc6900; color: white;">
+                <th style="padding: 10px; border: 1px solid #ddd;">Name</th>
+                <th style="padding: 10px; border: 1px solid #ddd;">Email</th>
+                <th style="padding: 10px; border: 1px solid #ddd;">Last Utilization Week</th>
+                <th style="padding: 10px; border: 1px solid #ddd;">Last Hours Log Date</th>
+                <th style="padding: 10px; border: 1px solid #ddd;">Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for member in members %}
+            <tr style="background-color: {% if loop.index is odd %} #f9f9f9 {% else %} #ffffff {% endif %};">
+                <td style="padding: 10px; border: 1px solid #ddd;">{{ member.name }}</td>
+                <td style="padding: 10px; border: 1px solid #ddd;">{{ member.email }}</td>
+                <td style="padding: 10px; border: 1px solid #ddd;">{{ member.last_utilization_week|default('N/A', true) }}</td>
+                <td style="padding: 10px; border: 1px solid #ddd;">{{ member.last_hours_log_date|default('N/A', true) }}</td>
+                <td style="padding: 10px; border: 1px solid #ddd;">
+                    {% if member.show_reminder %}
+                    <form action="{{ url_for('send_reminder', member_id=member.id) }}" method="POST" style="text-align: center;">
+                        <button type="submit" style="background-color: #dc6900; color: white; padding: 8px 16px; border: none; border-radius: 5px; cursor: pointer;">
+                            Send Reminder
+                        </button>
+                    </form>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% endblock %}

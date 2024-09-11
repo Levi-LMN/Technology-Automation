@@ -1,0 +1,302 @@
+{% extends "base.html" %}
+{% block content %}
+
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <style>
+        /* Basic styles for the body and layout */
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            color: #333;
+        }
+        h1 {
+            background-color: #495057;
+            color: #fff;
+            padding: 20px;
+            margin: 0;
+            text-align: center;
+        }
+
+        /* Navigation Bar */
+        .navbar {
+            background: #f8f9fa;
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+            text-align: center;
+        }
+        .navbar a {
+            color: #495057;
+            text-decoration: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            transition: background 0.3s, color 0.3s;
+        }
+        .navbar a:hover,
+        .navbar a.active {
+            background: #495057;
+            color: #fff;
+            border-radius: 4px;
+        }
+
+        /* Section Styling */
+        .section {
+            display: none;
+            padding: 20px;
+        }
+        .section.active {
+            display: block;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        table, th, td {
+            border: 1px solid #ddd;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #495057;
+            color: white;
+        }
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        tr:hover {
+            background-color: #e9ecef;
+        }
+
+        /* Footer Styling */
+        footer {
+            text-align: center;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-top: 1px solid #ddd;
+        }
+        footer a {
+            color: #495057;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <h1>View Details</h1>
+    
+    <!-- Navigation Bar -->
+    <div class="navbar">
+        <a href="#staff" onclick="showSection('staff')">Staff Members</a>
+        <a href="#engagements" onclick="showSection('engagements')">Engagements</a>
+        <a href="#proposals" onclick="showSection('proposals')">Proposals</a>
+        <a href="#non-billables" onclick="showSection('non-billables')">Non-Billables</a>
+        <a href="#hours-logs" onclick="showSection('hours-logs')">Hours Logs</a>
+    </div>
+
+    <!-- Sections -->
+    <section id="staff" class="section">
+        <h2>Staff Members</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <!-- <th>Engagements</th>
+                    <th>Proposals</th> -->
+                    <!-- <th>Hours Logs</th> -->
+                    <!-- <th>Log Hours</th> -->
+                    <!-- <th>Manage Leave</th> -->
+                    <!-- <th>Edit Leave</th> -->
+                    <th>Rollout to Staff </th>
+                    <th>View Staff Details</th>
+                    <th>View Staff Logs</th>
+
+                </tr>
+            </thead>
+            <tbody>
+                {% for staff in staff_members %}
+                <tr>
+                    <td>{{ staff.id }}</td>
+                    <td>{{ staff.name }}</td>
+                    <!-- <td>
+                        {% for engagement in staff.engagements %}
+                        <div>{{ engagement.name }} (Status: {{ engagement.status }})</div>
+                        {% else %}
+                        <div>No engagements</div>
+                        {% endfor %}
+                    </td>
+                    <td>
+                        {% for proposal in staff.proposals %}
+                        <div>{{ proposal.name }} (Status: {{ proposal.status }})</div>
+                        {% else %}
+                        <div>No proposals</div>
+                        {% endfor %}
+                    </td> -->
+                    <!-- <td>
+                        {% for log in staff.hours_logs %}
+                        <div>{{ log.date }} - Category: {{ log.category }} - Hours: {{ log.hours }}</div>
+                        {% else %}
+                        <div>No hours logs</div>
+                        {% endfor %}
+                    </td> -->
+                    <!-- <td>
+                        <a href="{{ url_for('log_hours', staff_member_id=staff.id) }}" class="btn " style="background-color: #dc6900; color: whitesmoke;">Log Hours</a>
+                    </td> -->
+                    <!-- <td>
+                        <a href="{{ url_for('manage_leave', staff_id=staff.id) }}" class="btn " style="background-color: #dc6900; color: whitesmoke;">Manage Leave</a>
+                    </td> -->
+                    <!-- <td>
+                        <a href="{{ url_for('edit_leave', staff_id=staff.id) }}" class="btn " style="background-color: #dc6900; color: whitesmoke;">Manage Leave Days</a>
+                    </td> -->
+                    <td>
+                        <a href="{{ url_for('choose_option', staff_id=staff.id) }}" class="btn " style="background-color: #dc6900; color: whitesmoke;">Rollout to staff</a>
+                    </td>
+                    <td>
+                        <a href="{{ url_for('staff_detail', staff_id=staff.id) }}" class="btn " style="background-color: #dc6900; color: whitesmoke;">View Staff Details</a>
+                    </td>
+                    <td>
+                        <a href="{{ url_for('view_logs', staff_id=staff.id) }}" class="btn " style="background-color: #dc6900; color: whitesmoke;">View Staff Logs</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+
+    <section id="engagements" class="section">
+        <h2>Engagements</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Team Leader</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for engagement in engagements %}
+                <tr>
+                    <td>{{ engagement.id }}</td>
+                    <td>{{ engagement.name }}</td>
+                    <td>{{ engagement.team_leader.name if engagement.team_leader else "N/A" }}</td>
+                    <td>{{ engagement.status }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+
+    <section id="proposals" class="section">
+        <h2>Proposals</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Team Leader</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for proposal in proposals %}
+                <tr>
+                    <td>{{ proposal.id }}</td>
+                    <td>{{ proposal.name }}</td>
+                    <td>{{ proposal.team_leader.name if proposal.team_leader else "N/A" }}</td>
+                    <td>{{ proposal.status }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+
+    <section id="non-billables" class="section">
+        <h2>Non-Billables</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for non_billable in non_billables %}
+                <tr>
+                    <td>{{ non_billable.id }}</td>
+                    <td>{{ non_billable.name }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+
+    <section id="hours-logs" class="section">
+        <h2>Hours Logs</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Staff Name</th>
+                    <th>Category</th>
+                    <th>Item ID</th>
+                    <th>Hours</th>
+                    <th>Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in logs %}
+                <tr>
+                    <td>{{ log.id }}</td>
+                    <td>{{ staff_names[log.staff_id] }}</td>
+                    <td>{{ log.category }}</td>
+                    <td>{{ log.item_id }}</td>
+                    <td>{{ log.hours }}</td>
+                    <td>{{ log.date }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    
+
+    <footer>
+        <a href="{{ url_for('index') }}">Back to Home</a>
+    </footer>
+
+    <script>
+        // Function to show a specific section and hide others
+        function showSection(id) {
+            // Hide all sections
+            document.querySelectorAll('.section').forEach(section => {
+                section.classList.remove('active');
+            });
+            
+            // Remove active class from all nav links
+            document.querySelectorAll('.navbar a').forEach(link => {
+                link.classList.remove('active');
+            });
+
+            // Show the selected section
+            document.getElementById(id).classList.add('active');
+
+            // Set the clicked nav link to active
+            document.querySelector(`.navbar a[href='#${id}']`).classList.add('active');
+        }
+
+        // Optionally, show a default section on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            showSection('staff'); // Change to default section ID if needed
+        });
+    </script>
+</body>
+
+{% endblock %}

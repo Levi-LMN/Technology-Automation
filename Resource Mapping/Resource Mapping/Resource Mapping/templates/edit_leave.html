@@ -1,0 +1,64 @@
+<body style="background-color: #dc6900; font-family: Arial, sans-serif;">
+
+    <div class="container" style="max-width: 800px; margin: 50px auto; padding: 20px; background-color: #f9f9f9; border: 1px solid #ddd; border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);">
+        <h1 class="text-center" style="color: #dc6900; font-weight: bold; margin-bottom: 20px; font-size: 24px;">Edit Leave for {{ staff_member.name }}</h1>
+    
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="alert alert-{{ category }}" style="
+                margin-bottom: 20px;
+                padding: 15px;
+                border-radius: 5px;
+                border: 1px solid #ddd;
+                color: #333;
+                background-color: {% if category == 'success' %} #d4edda {% elif category == 'error' %} #f8d7da {% elif category == 'warning' %} #fff3cd {% else %} #e2e3e5 {% endif %};
+                border-color: {% if category == 'success' %} #c3e6cb {% elif category == 'error' %} #f5c6cb {% elif category == 'warning' %} #ffeeba {% else %} #d6d6d6 {% endif %};
+                font-size: 16px;
+              ">
+                <strong>{{ category|capitalize }}!</strong> {{ message }}
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+    
+        <h2 class="text-center" style="color: #333; font-weight: bold; margin-bottom: 20px; font-size: 18px;">Current Leave Records</h2>
+        <table class="table table-striped table-bordered" style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+            <thead>
+                <tr>
+                    <th style="background-color: #f0f0f0; border-bottom: 1px solid #ddd; padding: 10px; text-align: center;">Date</th>
+                    <th style="background-color: #f0f0f0; border-bottom: 1px solid #ddd; padding: 10px; text-align: center;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for record in leave_records %}
+                <tr>
+                    <td style="padding: 10px; text-align: center;">
+                        <form method="POST" style="display: inline;">
+                            <input type="date" name="new_date_{{ record.id }}" value="{{ record.date }}" required class="form-control" style="width: 150px; height: 35px; padding: 10px; border-radius: 5px; border: 1px solid #ccc;">
+                            <button type="submit" name="edit" value="{{ record.id }}" class="btn btn-primary btn-sm" style="background-color: #dc6900; border-color: #dc6900; color: #ffffff; padding: 10px 20px; border-radius: 5px; cursor: pointer;">Update</button>
+                        </form>
+                    </td>
+                    <td style="padding: 10px; text-align: center;">
+                        <form method="POST" style="display: inline;">
+                            <button type="submit" name="delete" value="{{ record.id }}" class="btn btn-danger btn-sm" style="background-color: #d9534f; border-color: #d9534f; color: #ffffff; padding: 10px 20px; border-radius: 5px; cursor: pointer;" onclick="return confirm('Are you sure you want to delete this leave record?')">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    
+        <h2 class="text-center" style="color: #333; font-weight: bold; margin-bottom: 20px; font-size: 18px;">Add New Leave Record</h2>
+        <form method="POST">
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label for="new_leave_date" style="display: block; margin-bottom: 10px;">Date:</label>
+                <input type="date" id="new_leave_date" name="new_leave_date" required class="form-control" style="width: 150px; height: 35px; padding: 10px; border-radius: 5px; border: 1px solid #ccc;">
+            </div>
+            <button type="submit" name="add" value="1" class="btn btn-success" style="background-color: #dc6900; border-color: #dc6900; color: #ffffff; padding: 10px 20px; border-radius: 5px; cursor: pointer;">Add Leave</button>
+        </form>
+    
+        <center><a href="{{ url_for('choose_option', staff_id=staff_member.id) }}" class="btn btn-secondary mt-3" style="background-color: #666; border-color: #666; text-decoration: none; color: #ffffff; padding: 10px 20px; border-radius: 5px; cursor: pointer;">Back to Home</a></center>
+    </div>
+
+</body>

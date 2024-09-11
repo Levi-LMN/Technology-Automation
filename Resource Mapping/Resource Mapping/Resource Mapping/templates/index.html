@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Home Page</title>
+  <!-- Bootstrap CSS -->
+  <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Font Awesome CSS -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" rel="stylesheet">
+  <!-- Custom CSS -->
+  <style>
+    
+    /* Custom button styles */
+    .btn-custom {
+      background: linear-gradient(135deg, #495057 0%, #3c3f42 100%);
+      border: none;
+      color: #fff;
+      font-size: 16px;
+      transition: background 0.3s ease, transform 0.3s ease;
+    }
+
+    .btn-custom:hover {
+      background: linear-gradient(135deg, #5c6165 0%, #727c86 100%);
+      transform: scale(1.05);
+    }
+
+    /* Card styles */
+    .card {
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .card:hover {
+      transform: scale(1.03);
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+    }
+
+    /* Custom card styles */
+    .card-body {
+      padding: 2rem;
+    }
+
+    .card-title {
+      font-size: 1.25rem;
+      color: #333;
+    }
+
+    .card-text {
+      color: #6c757d;
+    }
+
+    /* Icon styles */
+    .fa-3x {
+      font-size: 3rem;
+    }
+
+    .icon-primary {
+      color: #dc6900; /* Match the theme color */
+    }
+
+    .icon-primary:hover {
+      color: #594223; /* Lighter shade on hover for interaction */
+    }
+  </style>
+</head>
+<body >
+  <!-- extends base HTML template -->
+  {% extends 'base.html' %}
+
+  <!-- override content section -->
+  {% block content %}
+    <div class="container py-5">
+      <h1 class="text-center mb-5 font-weight-bold display-3">Home Page</h1>
+      <div class="row justify-content-center">
+        <!-- navigation cards -->
+        {% for card in [
+            {'title': 'Add Staff', 'text': 'Add new staff members to the system.', 'url': 'add_staff', 'icon': 'fas fa-user-plus'},
+            {'title': 'Add Engagement', 'text': 'Add new engagements for staff members.', 'url': 'add_engagement', 'icon': 'fas fa-calendar-plus'},
+            {'title': 'Add Proposal', 'text': 'Add new proposals for clients.', 'url': 'add_proposal', 'icon': 'fas fa-file-alt'},
+            {'title': 'Add Non-Billable', 'text': 'Add non-billable hours for staff members.', 'url': 'add_non_billable', 'icon': 'fas fa-clock'},
+            {'title': 'View Details', 'text': 'View detailed reports for staff members.', 'url': 'view_details', 'icon': 'fas fa-eye'},
+            {'title': 'Edit Data', 'text': 'Edit existing data for staff members.', 'url': 'edit_data', 'icon': 'fas fa-edit'},
+            {'title': 'Generate Excel Report', 'text': 'Generate Excel reports for staff members.', 'url': 'generate_excel', 'icon': 'fas fa-file-excel'},
+            {'title': 'View Leave Balances', 'text': 'View leave balances for staff members.', 'url': 'leave_balances', 'icon': 'fas fa-calendar-day'}
+          ]
+        %}
+        <div class="col-lg-3 col-md-4 mb-4">
+          <div class="card border-light rounded-lg shadow-sm">
+            <div class="card-body text-center">
+              <div class="mb-3">
+                <i class="{{ card.icon }} fa-3x icon-primary"></i>
+              </div>
+              <h5 class="card-title font-weight-bold mb-3">{{ card.title }}</h5>
+              <p class="card-text mb-4">{{ card.text }}</p>
+              <a href="{{ url_for(card.url) }}" class="btn btn-custom px-4 py-2 rounded-pill">Go</a>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  {% endblock %}
+  
+  <!-- Bootstrap JS and dependencies -->
+  <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.10.2/dist/umd/popper.min.js"></script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+</html>

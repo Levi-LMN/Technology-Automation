@@ -1,0 +1,644 @@
+{% block content %}
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #dc6900;
+            --secondary-color: #2c3e50;
+            --background-color: #e98e26;
+            --card-background: #ffffff;
+            --text-color: #333333;
+            --border-color: #e0e0e0;
+            --hover-color: #d5823a;
+            --input-background: #dbe0e6;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            background-color: var(--background-color);
+            margin: 0;
+            padding: 20px;
+        }
+
+        .lgcontainer {
+            max-width: 1000px;
+            margin: 0 auto;
+            background-color: var(--card-background);
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        h1, h2 {
+            color: var(--secondary-color);
+            margin-bottom: 25px;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            font-weight: 600;
+            border-bottom: 3px solid var(--primary-color);
+            padding-bottom: 15px;
+        }
+
+        h2 {
+            font-size: 2em;
+            margin-top: 40px;
+            font-weight: 500;
+        }
+
+        .hours-container { 
+            display: none;
+            background-color: var(--input-background);
+            padding: 25px;
+            border-radius: 10px;
+            margin-top: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .item-group {
+            margin-bottom: 30px;
+            border: 1px solid var(--border-color);
+            padding: 25px;
+            border-radius: 10px;
+            transition: box-shadow 0.3s ease, transform 0.3s ease;
+        }
+
+        .item-group:hover {
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .hours-inputs {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+
+        .day-input {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 18%;
+        }
+
+        .day-label {
+            font-size: 0.9em;
+            margin-bottom: 5px;
+            color: var(--secondary-color);
+            font-weight: 500;
+        }
+
+        .hours-inputs input[type="number"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            transition: all 0.3s ease;
+            background-color: var(--card-background);
+        }
+
+        .hours-inputs input[type="number"]:focus {
+            border-color: var(--primary-color);
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
+        }
+
+        .same-hours-input {
+            width: 100%;
+            padding: 10px;
+            margin-top: 20px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background-color: var(--card-background);
+        }
+
+        label {
+            display: inline-block;
+            margin-bottom: 10px;
+            font-weight: 500;
+        }
+
+        input[type="date"] {
+            padding: 10px;
+            margin-bottom: 25px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            width: 200px;
+            background-color: var(--input-background);
+        }
+
+        button {
+            padding: 12px 24px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 1em;
+            margin-top: 30px;
+            font-weight: 500;
+        }
+
+        button:hover {
+            background-color: var(--hover-color);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .flash-messages {
+            margin-bottom: 25px;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+
+        .alert-success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-danger {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        a {
+            color: var(--primary-color);
+            text-decoration: none;
+            transition: color 0.3s ease;
+            font-weight: 500;
+        }
+
+        a:hover {
+            color: var(--hover-color);
+            text-decoration: underline;
+        }
+
+        .checkbox-wrapper {
+            display: inline-block;
+            position: relative;
+            padding-left: 35px;
+            cursor: pointer;
+            font-size: 16px;
+            user-select: none;
+            margin-bottom: 10px;
+        }
+
+        .checkbox-wrapper input {
+            position: absolute;
+            opacity: 0;
+            cursor: pointer;
+            height: 0;
+            width: 0;
+        }
+
+        .checkmark {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 25px;
+            width: 25px;
+            background-color: #fff;
+            border: 2px solid var(--primary-color);
+            border-radius: 4px;
+            transition: all 0.3s ease;
+        }
+
+        .checkbox-wrapper:hover input ~ .checkmark {
+            background-color: #f0f0f0;
+        }
+
+        .checkbox-wrapper input:checked ~ .checkmark {
+            background-color: var(--primary-color);
+        }
+
+        .checkmark:after {
+            content: "";
+            position: absolute;
+            display: none;
+        }
+
+        .checkbox-wrapper input:checked ~ .checkmark:after {
+            display: block;
+        }
+
+        .checkbox-wrapper .checkmark:after {
+            left: 9px;
+            top: 5px;
+            width: 5px;
+            height: 10px;
+            border: solid white;
+            border-width: 0 2px 2px 0;
+            transform: rotate(45deg);
+        }
+
+        .daily-summary {
+            margin-top: 40px;
+            background-color: var(--card-background);
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .daily-summary h2 {
+            color: var(--secondary-color);
+            margin-bottom: 20px;
+        }
+
+        .daily-summary-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .daily-summary-table th,
+        .daily-summary-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .daily-summary-table th {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .daily-summary-table tr:last-child td {
+            border-bottom: none;
+        }
+    </style>
+</head>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Log Hours for {{ staff_member.name }}</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- Add your CSS here -->
+</head>
+<body>
+    <div class="lgcontainer">
+        <!-- Flash messages -->
+        <div class="flash-messages">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+              {% if messages %}
+                <ul class="list-unstyled">
+                  {% for category, message in messages %}
+                    <li class="alert alert-{{ category }}">{{ message }}</li>
+                  {% endfor %}
+                </ul>
+              {% endif %}
+            {% endwith %}
+        </div>
+
+        <h1>Log Hours for {{ staff_member.name }}</h1>
+        <form id="log-hours-form" method="POST">
+            <label for="week_start">Week Start:</label>
+            <input type="date" id="week_start" name="week_start" value="{{ week_start }}" required readonly>
+
+            <div id="hours-container">
+                <!-- Proposals Category -->
+                <h2>Proposals</h2>
+                {% for proposal in proposals %}
+                    <div class="item-group">
+                        <label class="checkbox-wrapper">
+                            {{ proposal.name }}
+                            <input type="checkbox" id="proposal_{{ proposal.id }}" name="proposal_ids[]" value="{{ proposal.id }}" class="item-checkbox"
+                                {% if proposal.id in existing_hours.get('proposal', {}) %}checked{% endif %}>
+                            <span class="checkmark"></span>
+                        </label>
+                        <div class="hours-container">
+                            <label class="checkbox-wrapper">
+                                Same hours all week
+                                <input type="checkbox" id="proposal_same_{{ proposal.id }}" class="same-hours-checkbox">
+                                <span class="checkmark"></span>
+                            </label>
+                            <div class="hours-inputs">
+                                {% for i in range(5) %}
+                                    <div class="day-input">
+                                        <span class="day-label proposal-day-label-{{ i }}"></span>
+                                        <input type="number" step="0.01" min="0" max="24" 
+                                            name="proposal_hours[{{ proposal.id }}][{{ i }}]"
+                                            value="{{ existing_hours.get('proposal', {}).get(proposal.id, {}).get(i, '') }}">
+                                    </div>
+                                {% endfor %}
+                            </div>
+                            <input type="number" step="0.01" min="0" max="24" class="same-hours-input" style="display: none;">
+                        </div>
+                    </div>
+                {% endfor %}
+
+                <!-- Engagements Category -->
+                <h2>Engagements</h2>
+                {% for engagement in engagements %}
+                    <div class="item-group">
+                        <label class="checkbox-wrapper">
+                            {{ engagement.name }}
+                            <input type="checkbox" id="engagement_{{ engagement.id }}" name="engagement_ids[]" value="{{ engagement.id }}" class="item-checkbox"
+                                {% if engagement.id in existing_hours.get('engagement', {}) %}checked{% endif %}>
+                            <span class="checkmark"></span>
+                        </label>
+                        <div class="hours-container">
+                            <label class="checkbox-wrapper">
+                                Same hours all week
+                                <input type="checkbox" id="engagement_same_{{ engagement.id }}" class="same-hours-checkbox">
+                                <span class="checkmark"></span>
+                            </label>
+                            <div class="hours-inputs">
+                                {% for i in range(5) %}
+                                    <div class="day-input">
+                                        <span class="day-label engagement-day-label-{{ i }}"></span>
+                                        <input type="number" step="0.01" min="0" max="24" 
+                                            name="engagement_hours[{{ engagement.id }}][{{ i }}]"
+                                            value="{{ existing_hours.get('engagement', {}).get(engagement.id, {}).get(i, '') }}">
+                                    </div>
+                                {% endfor %}
+                            </div>
+                            <input type="number" step="0.01" min="0" max="24" class="same-hours-input" style="display: none;">
+                        </div>
+                    </div>
+                {% endfor %}
+
+                <!-- Non-Billables Category -->
+                <h2>Non-Billables</h2>
+                {% for non_billable in non_billables %}
+                    <div class="item-group">
+                        <label class="checkbox-wrapper">
+                            {{ non_billable.name }}
+                            <input type="checkbox" id="nonbillable_{{ non_billable.id }}" name="nonbillable_ids[]" value="{{ non_billable.id }}" class="item-checkbox"
+                                {% if non_billable.id in existing_hours.get('nonbillable', {}) %}checked{% endif %}>
+                            <span class="checkmark"></span>
+                        </label>
+                        <div class="hours-container">
+                            <label class="checkbox-wrapper">
+                                Same hours all week
+                                <input type="checkbox" id="nonbillable_same_{{ non_billable.id }}" class="same-hours-checkbox">
+                                <span class="checkmark"></span>
+                            </label>
+                            <div class="hours-inputs">
+                                {% for i in range(5) %}
+                                    <div class="day-input">
+                                        <span class="day-label nonbillable-day-label-{{ i }}"></span>
+                                        <input type="number" step="0.01" min="0" max="24" 
+                                            name="nonbillable_hours[{{ non_billable.id }}][{{ i }}]"
+                                            value="{{ existing_hours.get('nonbillable', {}).get(non_billable.id, {}).get(i, '') }}">
+                                    </div>
+                                {% endfor %}
+                            </div>
+                            <input type="number" step="0.01" min="0" max="24" class="same-hours-input" style="display: none;">
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+
+            <!-- New Daily Summary Section -->
+            <div class="daily-summary">
+                <h2>Daily Summary</h2>
+                <small>Here is a summary of what you have logged</small>
+                <table class="daily-summary-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Proposals</th>
+                            <th>Engagements</th>
+                            <th>Non-Billables</th>
+                            <th>Total</th>
+                        </tr>
+                    </thead>
+                    <tbody id="daily-summary-body">
+                        <!-- This will be populated by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+
+            <center><button type="submit" style="margin-bottom: 20px;">Log Hours</button></center>
+            <br>
+            <br>
+            <center><a href="{{ url_for('choose_option', staff_id=staff_member.id) }}" class="btn btn-secondary mt-3" style="background-color: #666; border-color: #666; text-decoration: none; color: #ffffff; padding: 10px 20px; border-radius: 5px; cursor: pointer;">Back to Home</a></center>
+        </form>
+    </div>
+
+    <script>
+       $(document).ready(function() {
+    // Initialize day labels with the current week start date
+    const weekStartDate = $('#week_start').val();
+    updateDayLabels(weekStartDate, 'proposal');
+    updateDayLabels(weekStartDate, 'engagement');
+    updateDayLabels(weekStartDate, 'nonbillable');
+
+    $('#week_start').change(function() {
+        const weekStart = $(this).val();
+        $.ajax({
+            url: '{{ url_for("log_hours", staff_member_id=staff_member.id) }}',
+            data: { week_start: weekStart },
+            method: 'GET',
+            success: function(data) {
+                updateForm(data.existing_hours);
+                updateDayLabels(weekStart, 'proposal');
+                updateDayLabels(weekStart, 'engagement');
+                updateDayLabels(weekStart, 'nonbillable');
+                updateDailySummary();
+            },
+            error: function(xhr, status, error) {
+                console.error("An error occurred: " + error);
+            }
+        });
+    });
+
+    function updateDayLabels(startDate, category) {
+        const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+        const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+        
+        for (let i = 0; i < 5; i++) {
+            const date = new Date(startDate);
+            date.setDate(date.getDate() + i);
+            const dayName = days[i];
+            const monthName = months[date.getMonth()];
+            const dayOfMonth = date.getDate();
+            
+            const label = `${dayName} ${dayOfMonth}${getOrdinalSuffix(dayOfMonth)} ${monthName}`;
+            $(`.${category}-day-label-${i}`).text(label);
+        }
+    }
+
+    function getOrdinalSuffix(day) {
+        if (day > 3 && day < 21) return 'th';
+        switch (day % 10) {
+            case 1:  return "st";
+            case 2:  return "nd";
+            case 3:  return "rd";
+            default: return "th";
+        }
+    }
+
+    function updateDailySummary() {
+        const weekStart = new Date($('#week_start').val());
+        const summaryData = {};
+
+        for (let i = 0; i < 5; i++) {
+            const currentDate = new Date(weekStart);
+            currentDate.setDate(currentDate.getDate() + i);
+            const dateString = currentDate.toISOString().split('T')[0];
+            summaryData[dateString] = {
+                proposals: 0,
+                engagements: 0,
+                nonBillables: 0
+            };
+        }
+
+        // Calculate sums for each category
+        $('.item-checkbox:checked').each(function() {
+            const $container = $(this).closest('.item-group');
+            const $sameHoursCheckbox = $container.find('.same-hours-checkbox');
+            const category = $(this).attr('id').split('_')[0];
+            const itemId = $(this).attr('id').split('_')[1];
+
+            if ($sameHoursCheckbox.is(':checked')) {
+                // If "Same hours all week" is checked, use that value for all days
+                const value = parseFloat($container.find('.same-hours-input').val()) || 0;
+                for (let i = 0; i < 5; i++) {
+                    const currentDate = new Date(weekStart);
+                    currentDate.setDate(currentDate.getDate() + i);
+                    const dateString = currentDate.toISOString().split('T')[0];
+                    if (category === 'nonbillable') {
+                        summaryData[dateString].nonBillables += value;
+                    } else {
+                        summaryData[dateString][category + 's'] += value;
+                    }
+                }
+            } else {
+                // Otherwise, use individual day values
+                $container.find('.hours-inputs input[type="number"]').each(function(index) {
+                    const value = parseFloat($(this).val()) || 0;
+                    const currentDate = new Date(weekStart);
+                    currentDate.setDate(currentDate.getDate() + index);
+                    const dateString = currentDate.toISOString().split('T')[0];
+                    if (category === 'nonbillable') {
+                        summaryData[dateString].nonBillables += value;
+                    } else {
+                        summaryData[dateString][category + 's'] += value;
+                    }
+                });
+            }
+        });
+
+        // Update the summary table
+        let tableHtml = '';
+        for (const [date, data] of Object.entries(summaryData)) {
+            const total = data.proposals + data.engagements + data.nonBillables;
+            const formattedDate = new Date(date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+            tableHtml += `
+                <tr>
+                    <td>${formattedDate}</td>
+                    <td>${data.proposals.toFixed(2)}</td>
+                    <td>${data.engagements.toFixed(2)}</td>
+                    <td>${data.nonBillables.toFixed(2)}</td>
+                    <td>${total.toFixed(2)}</td>
+                </tr>
+            `;
+        }
+        $('#daily-summary-body').html(tableHtml);
+    }
+
+    function updateForm(existingHours) {
+        // Clear all checkboxes and inputs
+        $('input[type="checkbox"]').prop('checked', false);
+        $('input[type="number"]').val('');
+        $('.hours-container').hide();
+
+        // Update form with new data
+        for (var category in existingHours) {
+            for (var itemId in existingHours[category]) {
+                var $checkbox = $(`#${category}_${itemId}`);
+                $checkbox.prop('checked', true);
+                var $container = $checkbox.closest('div').find('.hours-container');
+                $container.show();
+                
+                var allSame = true;
+                var firstValue = null;
+                
+                for (var day in existingHours[category][itemId]) {
+                    var value = existingHours[category][itemId][day];
+                    var $input = $(`input[name="${category}_hours[${itemId}][${day}]"]`);
+                    $input.val(value);
+                    
+                    if (firstValue === null) {
+                        firstValue = value;
+                    } else if (value !== firstValue) {
+                        allSame = false;
+                    }
+                }
+                
+                if (allSame) {
+                    $container.find('.same-hours-checkbox').prop('checked', true).trigger('change');
+                    $container.find('.same-hours-input').val(firstValue);
+                }
+            }
+        }
+
+        updateDailySummary();
+    }
+
+    $(document).on('change', '.item-checkbox', function() {
+        const $container = $(this).closest('div').find('.hours-container');
+        if (this.checked) {
+            $container.show();
+        } else {
+            $container.hide();
+            $container.find('input[type="number"]').val('');
+            $container.find('.same-hours-checkbox').prop('checked', false);
+        }
+        updateDailySummary();
+    });
+
+    $(document).on('change', '.same-hours-checkbox', function() {
+        const $container = $(this).closest('.hours-container');
+        if (this.checked) {
+            $container.find('.hours-inputs').hide();
+            $container.find('.same-hours-input').show();
+        } else {
+            $container.find('.hours-inputs').show();
+            $container.find('.same-hours-input').hide();
+        }
+        updateDailySummary();
+    });
+
+    $('#log-hours-form').submit(function(e) {
+        e.preventDefault();
+        $('.same-hours-checkbox:checked').each(function() {
+            const $container = $(this).closest('.hours-container');
+            const value = $container.find('.same-hours-input').val();
+            $container.find('.hours-inputs input').val(value);
+        });
+        updateDailySummary();
+        this.submit();
+    });
+
+    // Initialize visibility
+    $('.item-checkbox').each(function() {
+        if (this.checked) {
+            $(this).closest('div').find('.hours-container').show();
+        }
+    });
+
+    // Call updateDailySummary when the page loads and when any input changes
+    updateDailySummary();
+    $(document).on('input', 'input[type="number"]', updateDailySummary);
+    $(document).on('input', '.same-hours-input', updateDailySummary);
+});
+    </script>
+</body>
+</html>
+
+{% endblock %}

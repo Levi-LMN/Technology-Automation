@@ -1,0 +1,291 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-5">
+    <h1 class="display-4 mb-4 text-center text-primary">Staff Detail: {{ staff.name }}</h1>
+
+    <!-- Navbar for Sections -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4 shadow rounded-pill">
+        <div class="container">
+            <ul class="navbar-nav flex-nowrap">
+                <li class="nav-item">
+                    <a class="nav-link active" href="#personal-info" data-bs-toggle="collapse" data-bs-target="#personal-info">
+                        <i class="bi bi-person"></i> Personal Information
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#summary-stats" data-bs-toggle="collapse" data-bs-target="#summary-stats">
+                        <i class="bi bi-bar-chart-line"></i> Summary Statistics
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#leave-stats" data-bs-toggle="collapse" data-bs-target="#leave-stats">
+                        <i class="bi bi-calendar-check"></i> Leave Statistics
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#team-roles" data-bs-toggle="collapse" data-bs-target="#team-roles">
+                        <i class="bi bi-people"></i> Team Leader Roles
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#cumulative-hours" data-bs-toggle="collapse" data-bs-target="#cumulative-hours">
+                        <i class="bi bi-hourglass-split"></i> Cumulative Hours Logged
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#detailed-hours" data-bs-toggle="collapse" data-bs-target="#detailed-hours">
+                        <i class="bi bi-clock"></i> Detailed Hours Log
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Sections Content -->
+    {% for section_id, section_title, section_class in [
+        ('personal-info', 'Personal Information', 'primary'),
+        ('summary-stats', 'Summary Statistics', 'success'),
+        ('leave-stats', 'Leave Statistics', 'warning'),
+        ('team-roles', 'Team Leader Roles', 'info'),
+        ('cumulative-hours', 'Cumulative Hours Logged', 'secondary'),
+        ('detailed-hours', 'Detailed Hours Log', 'dark')
+    ] %}
+    <div id="{{ section_id }}" class="collapse {{ section_id == 'personal-info' and 'show' }}">
+        <div class="card mb-4 border-{{ section_class }} shadow-lg rounded-4">
+            <div class="card-body">
+                <h2 class="card-title text-{{ section_class }} mb-3">{{ section_title }}</h2>
+                {% if section_id == 'personal-info' %}
+                <p><strong>ID:</strong> {{ staff.id }}</p>
+                <p><strong>Name:</strong> {{ staff.name }}</p>
+                <p><strong>Email:</strong> {{ staff.email }}</p>
+                
+                {% elif section_id == 'summary-stats' %}
+                <p><strong>Total Hours Logged:</strong> {{ total_hours }} hours</p>
+                <p><strong>Average Daily Hours:</strong> {{ average_daily_hours }} hours</p>
+                <p><strong>Utilization Rate:</strong> {{ utilization_rate }}%</p>
+                <p><strong>Most Active Category:</strong> {{ most_active_category }}</p>
+                {% elif section_id == 'leave-stats' %}
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>Used Leave:</strong> {{ leave_stats.used_leave_days }} days ({{ leave_stats.used_leave_hours }} hours)</p>
+                        <p><strong>Current Balance:</strong> {{ leave_stats.current_balance_days }} days ({{ leave_stats.current_balance_hours }} hours)</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Total Available:</strong> {{ leave_stats.total_available_days }} days ({{ leave_stats.total_available_hours }} hours)</p>
+                    </div>
+                </div>
+                {% elif section_id == 'team-roles' %}
+                <div class="row">
+                    <div class="col-md-6">
+                        <h3 class="h5">Engagements</h3>
+                        <ul class="list-unstyled">
+                        {% for engagement in engagements %}
+                            <li>{{ engagement.name }} (Status: {{ engagement.status }})</li>
+                        {% else %}
+                            <li>No engagements as team leader.</li>
+                        {% endfor %}
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h3 class="h5">Proposals</h3>
+                        <ul class="list-unstyled">
+                        {% for proposal in proposals %}
+                            <li>{{ proposal.name }} (Status: {{ proposal.status }})</li>
+                        {% else %}
+                            <li>No proposals as team leader.</li>
+                        {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+                {% elif section_id == 'cumulative-hours' %}
+                <div class="row">
+                    <div class="col-md-4">
+                        <h3 class="h5">Engagements</h3>
+                        <ul class="list-unstyled">
+                        {% for engagement, hours in cumulative_hours['engagements'].items() %}
+                            <li>{{ engagement }}: {{ hours }} hours</li>
+                        {% else %}
+                            <li>No hours logged for engagements.</li>
+                        {% endfor %}
+                        </ul>
+                    </div>
+                    <div class="col-md-4">
+                        <h3 class="h5">Proposals</h3>
+                        <ul class="list-unstyled">
+                        {% for proposal, hours in cumulative_hours['proposals'].items() %}
+                            <li>{{ proposal }}: {{ hours }} hours</li>
+                        {% else %}
+                            <li>No hours logged for proposals.</li>
+                        {% endfor %}
+                        </ul>
+                    </div>
+                    <div class="col-md-4">
+                        <h3 class="h5">Non-Billables</h3>
+                        <ul class="list-unstyled">
+                        {% for non_billable, hours in cumulative_hours['non_billables'].items() %}
+                            <li>{{ non_billable }}: {{ hours }} hours</li>
+                        {% else %}
+                            <li>No hours logged for non-billables.</li>
+                        {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+                {% elif section_id == 'detailed-hours' %}
+                {% for year, months in hours_logs_by_date.items() %}
+                    <h3 class="h5">{{ year }}</h3>
+                    {% for month, weeks in months.items() %}
+                        <h4 class="h6">{{ month }}</h4>
+                        {% for week, days in weeks.items() %}
+                            <h5 class="h6">Week {{ week }}</h5>
+                            <table class="table table-hover table-bordered">
+                                <thead class="bg-dark text-light">
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Category</th>
+                                        <th>Item</th>
+                                        <th>Hours</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                {% for day, logs in days.items() %}
+                                    <tr>
+                                        <td>{{ logs[0].date.strftime('%d %b %Y') }}</td>
+                                        <td>
+                                            {% for log in logs %}
+                                                {{ log.category.capitalize() }}{% if not loop.last %}, {% endif %}
+                                            {% endfor %}
+                                        </td>
+                                        <td>
+                                            {% for log in logs %}
+                                                {% if log.category == 'engagement' %}
+                                                    {{ Engagement.query.get(log.item_id).name if Engagement.query.get(log.item_id) else 'Unknown' }}
+                                                {% elif log.category == 'proposal' %}
+                                                    {{ Proposal.query.get(log.item_id).name if Proposal.query.get(log.item_id) else 'Unknown' }}
+                                                {% else %}
+                                                    {{ NonBillable.query.get(log.item_id).name if NonBillable.query.get(log.item_id) else 'Unknown' }}
+                                                {% endif %}
+                                                {% if not loop.last %}, {% endif %}
+                                            {% endfor %}
+                                        </td>
+                                        <td>
+                                            {{ logs | sum(attribute='hours') }}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                        {% endfor %}
+                    {% endfor %}
+                {% else %}
+                    <p>No hours logged.</p>
+                {% endfor %}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+    <div class="mt-4 text-center">
+        <a href="{{ url_for('view_details') }}" class="btn btn-lg gradient-button">Back to All Staff</a>
+    </div>
+</div>
+
+<!-- Bootstrap JavaScript and Popper.js -->
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css"></script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        var navLinks = document.querySelectorAll('.navbar-nav .nav-link');
+        var collapsibles = document.querySelectorAll('.collapse');
+
+        navLinks.forEach(function(link) {
+            link.addEventListener('click', function() {
+                var targetId = link.getAttribute('data-bs-target').substring(1);
+                var targetCollapse = document.getElementById(targetId);
+
+                collapsibles.forEach(function(coll) {
+                    if (coll.id !== targetId) {
+                        var bsCollapse = new bootstrap.Collapse(coll, { toggle: false });
+                        bsCollapse.hide();
+                    }
+                });
+
+                var bsTargetCollapse = new bootstrap.Collapse(targetCollapse, { toggle: true });
+                updateActiveLink(targetId);
+            });
+        });
+
+        // Function to update the active link
+        function updateActiveLink(targetId) {
+            navLinks.forEach(function(link) {
+                link.classList.remove('active');
+                if (link.getAttribute('data-bs-target').substring(1) === targetId) {
+                    link.classList.add('active');
+                }
+            });
+        }
+
+        // Optional: Set the active link on page load based on the initial visible section
+        var initialVisibleSection = document.querySelector('.collapse.show');
+        if (initialVisibleSection) {
+            updateActiveLink(initialVisibleSection.id);
+        }
+    });
+</script>
+
+<style>
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background-color: #f4f7f8;
+    }
+    .bg-primary {
+        background-color: #dc6900 !important;
+    }
+    .text-primary {
+        color: #dc6900 !important;
+    }
+    .navbar-nav .nav-link {
+        color: #fff !important;
+    }
+    .navbar-nav .nav-link.active, .navbar-nav .nav-link:hover {
+        background-color: #804610 !important;
+        border-radius: 0.5rem;
+        transition: background-color 0.3s ease;
+    }
+    .card {
+        border-radius: 1rem;
+    }
+    .card-title {
+        font-weight: 600;
+    }
+    .table {
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+    .table-bordered th, .table-bordered td {
+        border: 1px solid #dee2e6;
+    }
+    .table-hover tbody tr:hover {
+        background-color: #e9ecef;
+    }
+    .bg-dark {
+        background-color: #343a40 !important;
+    }
+    .gradient-button {
+        background: linear-gradient(45deg, #007bff, #dc6900);
+        color: white;
+        border-radius: 50px;
+        transition: background 0.3s ease;
+    }
+    .gradient-button:hover {
+        background: linear-gradient(45deg, #dc6900, #007bff);
+        color: white;
+    }
+    .shadow-lg {
+        box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
+    }
+</style>
+{% endblock %}

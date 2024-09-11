@@ -1,0 +1,718 @@
+<script>
+
+
+$(function() {
+  const url = new URL(window.location.href);
+  const params = new URLSearchParams(url.search);
+  const sectionId = params.get("sectionId");
+  const surveyCode = params.get("surveyCode");
+  const sectionName = params.get("sectionName");
+  const sectionDescription = params.get("sectionDescription");
+
+  $('#formContainer').before(`
+    <div style="text-align: center">
+    <h4 style="color: #D04A02; font-weight: bold;" class="mb-4text-center">${sectionName}</h4>
+    <h5 style="color: #000000; font-weight: bold;" class="mb-4text-center">${sectionDescription}</h5>
+    </div>
+  `);
+
+  // Web API ajax wrapper
+  (function(webapi, $) {
+    function safeAjax(ajaxOptions) {
+      var deferredAjax = $.Deferred();
+      shell.getTokenDeferred().done(function(token) {
+        if (!ajaxOptions.headers) {
+          $.extend(ajaxOptions, {
+            headers: {
+              "__RequestVerificationToken": token
+            }
+          });
+        } else {
+          ajaxOptions.headers["__RequestVerificationToken"] = token;
+        }
+        $.ajax(ajaxOptions)
+          .done(function(data, textStatus, jqXHR) {
+            validateLoginSession(data, textStatus, jqXHR, deferredAjax.resolve);
+          }).fail(deferredAjax.reject);
+      }).fail(function() {
+        deferredAjax.rejectWith(this, arguments);
+      });
+      return deferredAjax.promise();
+    }
+    webapi.safeAjax = safeAjax;
+  })(window.webapi = window.webapi || {}, jQuery)
+
+  // Notification component
+  var notificationMsg = (function() {
+    var $processingMsgEl = $('#processingMsg'),
+      _msg = 'Processing...',
+      _stack = 0,
+      _endTimeout;
+    return {
+      show: function(msg) {
+        $processingMsgEl.html(`
+          <div class="socket">
+    
+              <div class="gel center-gel">
+                  <div class="hex-brick h1"></div>
+                  <div class="hex-brick h2"></div>
+                  <div class="hex-brick h3"></div>
+              </div>
+              <div class="gel c1 r1">
+                  <div class="hex-brick h1"></div>
+                  <div class="hex-brick h2"></div>
+                  <div class="hex-brick h3"></div>
+              </div>
+              <div class="gel c2 r1">
+                  <div class="hex-brick h1"></div>
+                  <div class="hex-brick h2"></div>
+                  <div class="hex-brick h3"></div>
+              </div>
+              <div class="gel c3 r1">
+                  <div class="hex-brick h1"></div>
+                  <div class="hex-brick h2"></div>
+                  <div class="hex-brick h3"></div>
+              </div>
+              <div class="gel c4 r1">
+                  <div class="hex-brick h1"></div>
+                  <div class="hex-brick h2"></div>
+                  <div class="hex-brick h3"></div>
+              </div>
+              <div class="gel c5 r1">
+                  <div class="hex-brick h1"></div>
+                  <div class="hex-brick h2"></div>
+                  <div class="hex-brick h3"></div>
+              </div>
+              <div class="gel c6 r1">
+                  <div class="hex-brick h1"></div>
+                  <div class="hex-brick h2"></div>
+                  <div class="hex-brick h3"></div>
+              </div>
+              
+              <div class="gel c7 r2">
+                  <div class="hex-brick h1"></div>
+                  <div class="hex-brick h2"></div>
+                  <div class="hex-brick h3"></div>
+              </div>
+              
+              <div class="gel c8 r2">
+                  <div class="hex-brick h1"></div>
+                  <div class="hex-brick h2"></div>
+                  <div class="hex-brick h3"></div>
+              </div>
+              <div class="gel c9 r2">
+                  <div class="hex-brick h1"></div>
+                  <div class="hex-brick h2"></div>
+                  <div class="hex-brick h3"></div>
+              </div>
+              <div class="gel c10 r2">
+                  <div class="hex-brick h1"></div>
+                  <div class="hex-brick h2"></div>
+                  <div class="hex-brick h3"></div>
+              </div>
+              <div class="gel c11 r2">
+                  <div class="hex-brick h1"></div>
+                  <div class="hex-brick h2"></div>
+                  <div class="hex-brick h3"></div>
+              </div>
+              <div class="gel c12 r2">
+                  <div class="hex-brick h1"></div>
+                  <div class="hex-brick h2"></div>
+                  <div class="hex-brick h3"></div>
+              </div>
+              <div class="gel c13 r2">
+                  <div class="hex-brick h1"></div>
+                  <div class="hex-brick h2"></div>
+                  <div class="hex-brick h3"></div>
+              </div>
+              <div class="gel c14 r2">
+                  <div class="hex-brick h1"></div>
+                  <div class="hex-brick h2"></div>
+                  <div class="hex-brick h3"></div>
+              </div>
+              <div class="gel c15 r2">
+                  <div class="hex-brick h1"></div>
+                  <div class="hex-brick h2"></div>
+                  <div class="hex-brick h3"></div>
+              </div>
+              <div class="gel c16 r2">
+                  <div class="hex-brick h1"></div>
+                  <div class="hex-brick h2"></div>
+                  <div class="hex-brick h3"></div>
+              </div>
+              <div class="gel c17 r2">
+                  <div class="hex-brick h1"></div>
+                  <div class="hex-brick h2"></div>
+                  <div class="hex-brick h3"></div>
+              </div>
+              <div class="gel c18 r2">
+                  <div class="hex-brick h1"></div>
+                  <div class="hex-brick h2"></div>
+                  <div class="hex-brick h3"></div>
+              </div>
+              <div class="gel c19 r3">
+                  <div class="hex-brick h1"></div>
+                  <div class="hex-brick h2"></div>
+                  <div class="hex-brick h3"></div>
+              </div>
+              <div class="gel c20 r3">
+                  <div class="hex-brick h1"></div>
+                  <div class="hex-brick h2"></div>
+                  <div class="hex-brick h3"></div>
+              </div>
+              <div class="gel c21 r3">
+                  <div class="hex-brick h1"></div>
+                  <div class="hex-brick h2"></div>
+                  <div class="hex-brick h3"></div>
+              </div>
+              <div class="gel c22 r3">
+                  <div class="hex-brick h1"></div>
+                  <div class="hex-brick h2"></div>
+                  <div class="hex-brick h3"></div>
+              </div>
+              <div class="gel c23 r3">
+                  <div class="hex-brick h1"></div>
+                  <div class="hex-brick h2"></div>
+                  <div class="hex-brick h3"></div>
+              </div>
+              <div class="gel c24 r3">
+                  <div class="hex-brick h1"></div>
+                  <div class="hex-brick h2"></div>
+                  <div class="hex-brick h3"></div>
+              </div>
+              <div class="gel c25 r3">
+                  <div class="hex-brick h1"></div>
+                  <div class="hex-brick h2"></div>
+                  <div class="hex-brick h3"></div>
+              </div>
+              <div class="gel c26 r3">
+                  <div class="hex-brick h1"></div>
+                  <div class="hex-brick h2"></div>
+                  <div class="hex-brick h3"></div>
+              </div>
+              <div class="gel c28 r3">
+                  <div class="hex-brick h1"></div>
+                  <div class="hex-brick h2"></div>
+                  <div class="hex-brick h3"></div>
+              </div>
+              <div class="gel c29 r3">
+                  <div class="hex-brick h1"></div>
+                  <div class="hex-brick h2"></div>
+                  <div class="hex-brick h3"></div>
+              </div>
+              <div class="gel c30 r3">
+                  <div class="hex-brick h1"></div>
+                  <div class="hex-brick h2"></div>
+                  <div class="hex-brick h3"></div>
+              </div>
+              <div class="gel c31 r3">
+                  <div class="hex-brick h1"></div>
+                  <div class="hex-brick h2"></div>
+                  <div class="hex-brick h3"></div>
+              </div>
+              <div class="gel c32 r3">
+                  <div class="hex-brick h1"></div>
+                  <div class="hex-brick h2"></div>
+                  <div class="hex-brick h3"></div>
+              </div>
+              <div class="gel c33 r3">
+                  <div class="hex-brick h1"></div>
+                  <div class="hex-brick h2"></div>
+                  <div class="hex-brick h3"></div>
+              </div>
+              <div class="gel c34 r3">
+                  <div class="hex-brick h1"></div>
+                  <div class="hex-brick h2"></div>
+                  <div class="hex-brick h3"></div>
+              </div>
+              <div class="gel c35 r3">
+                  <div class="hex-brick h1"></div>
+                  <div class="hex-brick h2"></div>
+                  <div class="hex-brick h3"></div>
+              </div>
+              <div class="gel c36 r3">
+                  <div class="hex-brick h1"></div>
+                  <div class="hex-brick h2"></div>
+                  <div class="hex-brick h3"></div>
+              </div>
+              <div class="gel c37 r3">
+                  <div class="hex-brick h1"></div>
+                  <div class="hex-brick h2"></div>
+                  <div class="hex-brick h3"></div>
+              </div>
+              
+          </div>
+          <span>${msg || _msg}</span>
+        `);
+        if (_stack === 0) {
+          clearTimeout(_endTimeout);
+          $processingMsgEl.show();
+        }
+        _stack++;
+      },
+      hide: function() {
+        _stack--;
+        if (_stack <= 0) {
+          _stack = 0;
+          clearTimeout(_endTimeout);
+          _endTimeout = setTimeout(function() {
+            $processingMsgEl.hide();
+          }, 500);
+        }
+      }
+    }
+  })();
+
+  function generateUniqueId() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      var r = Math.random() * 16 | 0;
+      var v = c == 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+
+  // Form component
+  var questionForm = (function() {
+    var formTpl = '';
+    return function(config) {
+      var me = this,
+        columns = config.columns,
+        $form;
+      me.render = function(el, data) {
+        formTpl = '<div class="row">';
+        formTpl += '<div class="col-md-6">';
+        
+        var halfLength = Math.ceil(data.length / 2);
+        
+        _.forEach(data, function(question, index) {
+          renderQuestion(question);
+          
+          if (index === halfLength - 1) {
+            formTpl += '</div><div class="col-md-6">';
+          }
+        });
+        
+        formTpl += '</div></div>';
+        formTpl += '<div style="clear: both;"></div>';
+        formTpl += '<div style="text-align: center;">';
+        formTpl += '<button type="submit" id="submitButton">Submit</button>';
+        formTpl += '</div>';
+        
+        $form = $(el).html(formTpl);
+      };
+
+      function renderQuestion(question) {
+        formTpl += '<div class="question" data-question-code="' + question.cr072_question_code + '" data-order="' + question.cr072_order + '">';
+        formTpl += '<small>Question No: ' + question.cr072_order + '</small><br>';
+        if (question.cr072_description) {
+          formTpl += '<small><i>' + question.cr072_description + '</i></small><br>';
+        }
+        formTpl += '<label>' + question.cr072_text + ' <span class="required">*</span></label><br>';
+        
+        switch(question.cr072_answer_format) {
+          case "text":
+            formTpl += '<input type="text" id="answer_' + question.cr072_questionid + '" required />';
+            break;
+          case "textbox":
+            formTpl += '<textarea id="answer_' + question.cr072_questionid + '" required></textarea>';
+            break;
+            case "dropdown":
+              formTpl += '<select id="answer_' + question.cr072_questionid + '" required>';
+              formTpl += '<option value="" selected disabled>Select an option</option>';
+              formTpl += '<option value="">Loading options...</option>';
+              formTpl += '</select>';
+              break;
+          case "checkbox":
+            formTpl += '<div id="options_' + question.cr072_questionid + '">Loading options...</div>';
+            break;
+          case "number":
+            formTpl += '<input type="number" id="answer_' + question.cr072_questionid + '" required />';
+            formTpl += '<label class="toggle-switch">';
+            formTpl += '<input type="checkbox" class="toggle-additional-info">';
+            formTpl += '<span class="slider"></span>';
+            formTpl += '</label>';
+            formTpl += '<span style="font-size: 12px; margin-left: 5px;">Toggle to input extra info</span>';
+            formTpl += '<div class="additional-info" style="display: none;">';
+            formTpl += '<textarea placeholder="Enter additional information"></textarea>';
+            formTpl += '</div>';
+            break;
+          case "boolean":
+            const uniqueId = generateUniqueId();
+            const groupName = `answer_${uniqueId}_boolean`;
+            formTpl += '<input type="radio" id="answer_' + uniqueId + '_yes" name="' + groupName + '" value="yes" required />';
+            formTpl += '<label for="answer_' + uniqueId + '_yes">Yes</label><br>';
+            formTpl += '<input type="radio" id="answer_' + uniqueId + '_no" name="' + groupName + '" value="no" required />';
+            formTpl += '<label for="answer_' + uniqueId + '_no">No</label><br>';
+            break;
+          case "email":
+            formTpl += '<input type="email" id="answer_' + question.cr072_questionid + '" required />';
+            break;
+          case "telephone":
+              formTpl += '<input type="tel" id="answer_' + question.cr072_questionid + '" required pattern="[0-9]{3}-[0-9]{3}-[0-9]{4}" />';
+              formTpl += '<small>Format: 123-456-7890</small>';
+              break;
+        }
+        
+        formTpl += '</div>';
+      
+        if (question.cr072_answer_format === "dropdown" || question.cr072_answer_format === "checkbox") {
+          loadOptionsForQuestion(question.cr072_question_code).then(function(response) {
+            var options = response.value;
+            
+            if (question.cr072_answer_format === "dropdown") {
+              var $select = $('#answer_' + question.cr072_questionid);
+              $select.empty(); // Clear all options
+              $select.append('<option value="" selected disabled>Select an option</option>'); // Add back the default option
+              _.forEach(options, function(option) {
+                $select.append('<option value="' + option.cr072_name + '">' + option.cr072_name + '</option>');
+              });
+              
+              if (question.cr072_other_input === "yes") {
+                $select.append('<option value="Other">Other</option>');
+                $select.after('<input type="text" id="answer_' + question.cr072_questionid + '_other" placeholder="Please specify" style="display: none;" />');
+              }
+              
+            } else {
+              var $optionsContainer = $('#options_' + question.cr072_questionid);
+              $optionsContainer.empty(); // Clear the "Loading options..." text
+              _.forEach(options, function(option) {
+                $optionsContainer.append('<input type="checkbox" id="answer_' + question.cr072_questionid + '_' + option.cr072_name + '" ' +
+                  'name="answer_' + question.cr072_questionid + '" ' +
+                  'value="' + option.cr072_name + '" />' +
+                  '<label for="answer_' + question.cr072_questionid + '_' + option.cr072_name + '">' + option.cr072_name + '</label><br>');
+              });
+              
+              if (question.cr072_other_input === "yes") {
+                $optionsContainer.append('<input type="checkbox" id="answer_' + question.cr072_questionid + '_other_checkbox" name="answer_' + question.cr072_questionid + '" value="Other" />' +
+                  '<label for="answer_' + question.cr072_questionid + '_other_checkbox">Other</label>');
+                $optionsContainer.append('<input type="text" id="answer_' + question.cr072_questionid + '_other" placeholder="Please specify" style="display: none;" />');
+              }
+            }
+            
+            // Reattach event handlers for "Other" option
+            $('select').off('change').on('change', function() {
+              var $otherInput = $(this).siblings('input[type="text"]');
+              if ($(this).val() === 'Other') {
+                $otherInput.show();
+              } else {
+                $otherInput.hide();
+              }
+            });
+      
+            $('input[type="checkbox"][value="Other"]').off('change').on('change', function() {
+              var $otherInput = $(this).siblings('input[type="text"]');
+              if ($(this).is(':checked')) {
+                $otherInput.show();
+              } else {
+                $otherInput.hide();
+              }
+            });
+          });
+        }
+      }
+      me.data = [];
+    };
+  })();
+
+  // Application AJAX wrapper 
+  function appAjax(processingMsg, ajaxOptions) {
+    notificationMsg.show(processingMsg);
+    return webapi.safeAjax(ajaxOptions)
+      .fail(function(response) {
+        if (response.responseJSON) {
+          alert("Error:" + response.responseJSON.error.message);
+        } else {
+          alert("Error Fetching Questions\n Your Network Connection is not stable Please reload the page");
+        }
+      }).always(notificationMsg.hide);
+  }
+
+  function loadQuestions(sectionId) {
+    return appAjax('Loading...', {
+      type: "GET",
+      url: "/_api/cr072_questions",
+      data: {
+        $filter: "cr072_section_id eq '" + sectionId + "'",
+        $select: "cr072_questionid,cr072_text,cr072_description,cr072_answer_format,cr072_other_input,cr072_has_options,cr072_question_code,cr072_order",
+        $orderby: "cr072_order,cr072_questionid"
+      },
+      contentType: "application/json"
+    }).then(function(response) {
+      var questions = response.value;
+      
+      // Assign default orders to questions without one
+      var maxOrder = 0;
+      var usedOrders = new Set();
+      
+      questions.forEach(function(question) {
+        if (question.cr072_order) {
+          usedOrders.add(parseInt(question.cr072_order));
+          maxOrder = Math.max(maxOrder, parseInt(question.cr072_order));
+        }
+      });
+
+      questions.forEach(function(question, index) {
+        if (!question.cr072_order) {
+          // Find the next available order
+          while (usedOrders.has(++maxOrder)) {}
+          question.cr072_order = maxOrder.toString();
+          usedOrders.add(maxOrder);
+        }
+      });
+
+      // Sort questions by order
+      questions.sort(function(a, b) {
+        return parseInt(a.cr072_order) - parseInt(b.cr072_order);
+      });
+
+      return questions;
+    });
+  }
+
+  function loadOptionsForQuestion(questionCode) {
+    return appAjax('Loading...', {
+      type: "GET",
+      url: "/_api/cr072_quiz_options",
+      data: {
+        $filter: "cr072_question_id eq '" + questionCode + "'",
+        $select: "cr072_quiz_optionid,cr072_name"
+      },
+      contentType: "application/json"
+    });
+  }
+
+  var form = new questionForm({});
+
+  loadQuestions(sectionId).done(function(questions) {
+    form.data = questions;
+    $('#formContainer').html('<form id="questionForm"></form>');
+    form.render($('#questionForm'), form.data);
+    $('#questionForm').append('<input type="hidden" id="userEmail" name="userEmail" value="{{ user.emailaddress1 }}">');
+
+    $('select').on('change', function() {
+      var $otherInput = $(this).siblings('input[type="text"]');
+      if ($(this).val() === 'Other') {
+        $otherInput.show();
+      } else {
+        $otherInput.hide();
+      }
+    });
+
+    $('input[type="checkbox"][value="Other"]').on('change', function() {
+      var $otherInput = $(this).siblings('input[type="text"]');
+      if ($(this).is(':checked')) {
+        $otherInput.show();
+      } else {
+        $otherInput.hide();
+      }
+    });
+
+    // Question form on submit function
+    $("#questionForm").on("submit", function(event) {
+      event.preventDefault();
+
+      // Check if all required fields are filled
+      var allFieldsFilled = true;
+      $(".question").each(function() {
+        var $questionDiv = $(this);
+        var $inputs = $questionDiv.find("input, select, textarea").not('.additional-info textarea, .toggle-additional-info');
+        var questionFilled = false;
+
+        if ($inputs.is(":checkbox")) {
+          questionFilled = $inputs.filter(":checked").length > 0;
+        } else if ($inputs.is("select")) {
+          questionFilled = $inputs.val() !== "";
+        } else if ($inputs.is(":radio")) {
+          var groupName = $inputs.first().attr('name');
+          questionFilled = $('input[name="' + groupName + '"]:checked').length > 0;
+        } else {
+          questionFilled = $inputs.val().trim() !== "";
+        }
+
+        if (!questionFilled) {
+          allFieldsFilled = false;
+          $questionDiv.addClass('error');
+        } else {
+          $questionDiv.removeClass('error');
+        }
+      });
+
+      if (!allFieldsFilled) {
+        alert("Please fill in all required fields.");
+        return;
+      }
+
+      const userEmail = $("#userEmail").val();
+      const ajaxRequests = [];
+
+      function saveSectionStatus(surveyCode, sectionId, status) {
+        const dataToStore = JSON.stringify({
+          status: status,
+          timestamp: Date.now()
+        });
+        localStorage.setItem(`sectionStatus_${surveyCode}_${sectionId}`, dataToStore);
+      }
+      
+      function getSectionStatus(surveyCode, sectionId) {
+        const storedData = localStorage.getItem(`sectionStatus_${surveyCode}_${sectionId}`);
+        if (storedData) {
+          return JSON.parse(storedData);
+        }
+        return null;
+      }
+
+        $(".question", this).each(function() {
+          var $questionDiv = $(this);
+          var questionText = $questionDiv.find("label").first().contents().filter(function() {
+            return this.nodeType === 3; // Get only the text node
+          }).text().trim(); // Trim any whitespace
+          var questionCode = $questionDiv.data("question-code");
+          var $inputs = $questionDiv.find("input, select, textarea").not('.additional-info textarea, .toggle-additional-info');
+          var value = "";
+
+          if ($inputs.is(":checkbox")) {
+            var checkedValues = $inputs.filter(":checked").map(function() {
+              return $(this).val();
+            }).get();
+            
+            var $otherCheckbox = $inputs.filter('[value="Other"]:checked');
+            if ($otherCheckbox.length) {
+              var otherValue = $questionDiv.find('input[type="text"]').val();
+              if (otherValue) {
+                checkedValues = checkedValues.filter(v => v !== 'Other');
+                checkedValues.push("Other: " + otherValue);
+              }
+            }
+            
+            value = checkedValues.join(", ");
+          } else if ($inputs.is("select")) {
+            value = $inputs.val();
+            if (value === "Other") {
+              var otherValue = $questionDiv.find('input[type="text"]').val();
+              if (otherValue) {
+                value = "Other: " + otherValue;
+              }
+            }
+          } else if ($inputs.is(":radio")) {
+            value = $inputs.filter(":checked").val();
+          } else {
+            value = $inputs.val();
+          }
+
+          
+
+          if (value) {
+            var ajaxRequest = appAjax("Submitting answer...", {
+              type: "POST",
+              url: "/_api/cr072_answers",
+              data: JSON.stringify({
+                cr072_answer_value: value,
+                cr072_question_code: questionCode,
+                cr072_question_text: questionText,
+                cr072_section_id: sectionId,
+                cr072_survey_code: surveyCode,
+                cr072_user_email: userEmail
+              }),
+              contentType: "application/json"
+            });
+            ajaxRequests.push(ajaxRequest);
+          
+            // Check if additional info is provided
+            var $additionalInfoToggle = $questionDiv.find('.toggle-additional-info');
+            var $additionalInfoTextarea = $questionDiv.find('.additional-info textarea');
+            
+            if ($additionalInfoToggle.is(':checked') && $additionalInfoTextarea.val().trim() !== '') {
+              var additionalInfoRequest = appAjax("Submitting additional info...", {
+                type: "POST",
+                url: "/_api/cr072_answers",
+                data: JSON.stringify({
+                  cr072_answer_value: $additionalInfoTextarea.val().trim(),
+                  cr072_question_code: questionCode,
+                  cr072_question_text: questionText + " (Additional Info)",
+                  cr072_section_id: sectionId,
+                  cr072_survey_code: surveyCode,
+                  cr072_user_email: userEmail
+                }),
+                contentType: "application/json"
+              });
+              ajaxRequests.push(additionalInfoRequest);
+            }
+          }
+        });
+
+        $.when.apply($, ajaxRequests)
+        .done(function() {
+          alert("Answers submitted successfully!");
+          saveSectionStatus(surveyCode, sectionId, 'completed');
+          window.location.href = "/client/sections?surveyCode=" + surveyCode;
+        })
+        .fail(function() {
+          alert("Error submitting answers. Please try again.");
+        });
+      });
+    });
+  });
+
+  // Update the toggle switch event listener
+  $(document).on('change', '.toggle-additional-info', function() {
+    var $additionalInfo = $(this).closest('.question').find('.additional-info');
+    if (this.checked) {
+      $additionalInfo.show();
+    } else {
+      $additionalInfo.hide();
+      $additionalInfo.find('textarea').val(''); // Clear the textarea when hiding
+    }
+  });
+
+  // Function to validate email format
+  function isValidEmail(email) {
+    var emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  }
+
+  // Add custom validation for email fields
+  $(document).on('blur', 'input[type="email"]', function() {
+    var $emailInput = $(this);
+    var email = $emailInput.val().trim();
+    
+    if (email && !isValidEmail(email)) {
+      alert('Please enter a valid email address.');
+      $emailInput.val(''); // Clear the invalid email
+      $emailInput.focus(); // Set focus back to the email input
+    }
+  });
+
+  // Add custom validation for number fields
+  $(document).on('input', 'input[type="number"]', function() {
+    var $numberInput = $(this);
+    var value = $numberInput.val();
+    
+    // Remove any non-numeric characters
+    value = value.replace(/[^0-9.-]/g, '');
+    
+    // Ensure only one decimal point
+    var decimalCount = (value.match(/\./g) || []).length;
+    if (decimalCount > 1) {
+      value = value.replace(/\.(?=.*\.)/g, '');
+    }
+    
+    $numberInput.val(value);
+  });
+
+  // Prevent form submission on Enter key press
+  $(document).on('keypress', '#questionForm input', function(e) {
+    return e.which !== 13;
+  });
+
+  // Add a reset button to clear all inputs
+  $('#formContainer').append('<button type="button" id="resetButton">Reset Form</button>');
+  
+  $(document).on('click', '#resetButton', function() {
+    if (confirm('Are you sure you want to reset the form? All entered data will be lost.')) {
+      $('#questionForm')[0].reset();
+      $('.additional-info').hide();
+      $('.error').removeClass('error');
+    }
+  });
+
+</script>

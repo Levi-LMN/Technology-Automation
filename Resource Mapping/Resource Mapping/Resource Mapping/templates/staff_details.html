@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Staff Details</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f9f9f9;
+            margin: 0;
+            padding: 20px;
+            color: #444;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+            max-width: 600px;
+            margin: 40px auto;
+            transition: transform 0.3s;
+        }
+        /* .container:hover {
+            transform: scale(1.02);
+        } */
+        h2 {
+            font-size: 28px;
+            margin-bottom: 20px;
+            color: #333;
+            border-bottom: 2px solid #dc6900;
+            padding-bottom: 10px;
+        }
+        .detail-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 15px 0;
+            border-bottom: 1px solid #e0e0e0;
+            font-size: 18px;
+        }
+        .highlight {
+            color: #dc6900;
+            font-weight: bold;
+        }
+        .toggle-link {
+            display: inline-block;
+            margin-top: 30px;
+            padding: 15px 25px; /* Increased padding for a larger button */
+            border-radius: 8px; /* Rounded corners */
+            border: none;
+            font-weight: bold;
+            font-size: 20px; /* Increased font size */
+            text-align: center;
+            transition: background-color 0.3s, color 0.3s, transform 0.3s; /* Added transform for scaling */
+            cursor: pointer;
+            color: white;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15); /* Soft shadow */
+        }
+        .toggle-enabled {
+            background-color: red; /* Green for enabled */
+        }
+        .toggle-disabled {
+            background-color: #E88D14; /* Red for disabled */
+        }
+        .toggle-link:hover {
+            transform: scale(1.05); /* Slightly grow the button on hover */
+        }
+        .notification-form {
+            margin-top: 30px;
+            text-align: center; /* Center align the notification form */
+        }
+        .notification-message {
+            font-size: 16px;
+            color: #666;
+            margin: 20px 0;
+        }
+        .button {
+            display: inline-block;
+            margin-top: 25px;
+            padding: 12px 20px;
+            border-radius: 5px;
+            background-color: #dc6900;
+            color: white;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 16px;
+            text-align: center;
+            transition: background-color 0.3s, transform 0.3s;
+        }
+        .button:hover {
+            background-color: #b05d00;
+            transform: translateY(-2px);
+        }
+        /* Responsive Design */
+        @media (max-width: 600px) {
+            .container {
+                padding: 20px;
+            }
+            h2 {
+                font-size: 24px;
+            }
+            .detail-item {
+                font-size: 16px;
+            }
+            .toggle-link, .button {
+                font-size: 16px; /* Adjust font size for smaller screens */
+                padding: 10px 15px; /* Adjust padding for smaller screens */
+            }
+        }
+        .flash-message {
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+            color: #fff;
+        }
+        .flash-message.success {
+            background-color: #E88D14; /* Green for success */
+        }
+        .flash-message.warning {
+            background-color: #f44336; /* Red for warning */
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=True) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="flash-message {{ category }}">{{ message }}</div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+        <h2>Staff Member Information</h2>
+        
+        <div class="detail-item">
+            <span class="highlight">Email:</span>
+            <span>{{ staff_member.email }}</span>
+        </div>
+        <div class="detail-item">
+            <span class="highlight">Leave Days Remaining:</span>
+            <span>{{ staff_member.leave_days_remaining }}</span>
+        </div>
+        <!-- <div class="detail-item">
+            <span class="highlight">Is Team Leader:</span>
+            <span>{{ staff_member.is_team_leader }}</span>
+        </div> -->
+
+        <form method="POST" class="notification-form">
+            <div>
+                <span class="highlight">Receive Notifications:</span>
+                <p class="notification-message">
+                    {% if staff_member.receive_notifications %}
+                        Notifications are sent weekly to remind you to input the data for the week.
+                        If you switch off the notifications, you won't receive any reminders.
+                    {% else %}
+                        Notifications are currently disabled. If you enable them, you will receive weekly reminders to fetch the data for the week.
+                    {% endif %}
+                </p>
+                <button type="submit" name="toggle_notifications" class="toggle-link 
+                    {% if staff_member.receive_notifications %}toggle-enabled{% else %}toggle-disabled{% endif %}">
+                    {% if staff_member.receive_notifications %}Disable{% else %}Enable{% endif %}
+                </button>
+            </div>
+        </form>
+        
+        <a href="{{ url_for('choose_option',  staff_id=staff_member.id) }}" class="button">Back to Home</a>
+    </div>
+</body>
+</html>

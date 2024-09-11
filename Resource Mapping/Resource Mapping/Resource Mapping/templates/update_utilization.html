@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Update Utilization for {{ staff.name }}</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap">
+    <style>
+        body {
+    font-family: 'Roboto', sans-serif;
+    margin: 0;
+    padding: 0;
+    background: linear-gradient(135deg, #dc6900 0%, #ff9e00 100%);
+    color: #fff;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    text-align: center;
+}
+
+.container {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-around;
+    gap: 20px;
+    max-width: 1200px;
+    width: 100%;
+    margin: 40px auto;
+    align-items: flex-start; /* Align items at the start, allowing them to have different heights */
+}
+
+.card {
+    background: #fff;
+    color: #333;
+    border-radius: 15px;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+    padding: 30px;
+    width: 100%;
+    max-width: 500px;
+    text-align: left;
+    transition: transform 0.3s, box-shadow 0.3s, background-color 0.3s;
+    flex-grow: 0; /* Remove equal growth */
+}
+
+.card h1, .card h2 {
+    margin-bottom: 20px;
+    font-weight: 700;
+    color: #dc6900;
+}
+
+.card form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.card label {
+    font-size: 1.1em;
+    margin-bottom: 5px;
+}
+
+.card input[type="number"],
+.card input[type="date"] {
+    padding: 10px;
+    font-size: 1.1em;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.card button {
+    padding: 12px;
+    color: #fff;
+    background: #dc6900;
+    border: none;
+    border-radius: 8px;
+    font-size: 1.1em;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.card button:hover {
+    background: #ff9e00;
+}
+
+p {
+    margin: 0 0 15px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .container {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .card {
+        max-width: 100%;
+        margin: 20px 0;
+    }
+}
+.column {
+    display: flex;
+    flex-direction: column;
+    gap: 20px; /* Space between the two cards */
+    width: 100%;
+}
+
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <h1>Update Utilization for {{ staff.name }}</h1>
+            <p>Email: {{ staff.email }}</p>
+    
+            <h2>Update Utilization</h2>
+            <form method="POST">
+                <label for="week_start">Week Start Date:</label>
+                <input type="date" id="week_start" name="week_start" value="{{ week_start.strftime('%Y-%m-%d') }}" required>
+    
+                <label for="client_utilization_year_to_date">Client Utilization Year to Date (%):</label>
+                <input type="number" id="client_utilization_year_to_date" name="client_utilization_year_to_date" step="0.01" required>
+    
+                <label for="client_utilization_month_to_date">Client Utilization Month to Date (%):</label>
+                <input type="number" id="client_utilization_month_to_date" name="client_utilization_month_to_date" step="0.01" required>
+    
+                <label for="resource_utilization_year_to_date">Resource Utilization Year to Date (%):</label>
+                <input type="number" id="resource_utilization_year_to_date" name="resource_utilization_year_to_date" step="0.01" required>
+    
+                <label for="resource_utilization_month_to_date">Resource Utilization Month to Date (%):</label>
+                <input type="number" id="resource_utilization_month_to_date" name="resource_utilization_month_to_date" step="0.01" required>
+    
+                <button type="submit" name="update_utilization">Update Utilization</button>
+            </form>
+        </div>
+    
+        <!-- New Column for Leave Days and Back Home -->
+        <div class="column">
+            <div class="card">
+                <h2>Update Leave Days</h2>
+                <form method="POST">
+                    <p>Current Leave Days Remaining: {{ staff.leave_days_remaining }} hours ({{ (staff.leave_days_remaining / 7.5)|round(2) }} days)</p>
+                    <label for="leave_days_remaining">Leave Days Remaining (hours):</label>
+                    <input type="number" id="leave_days_remaining" name="leave_days_remaining" step="0.01" value="{{ staff.leave_days_remaining }}" required>
+            
+                    <p>Equivalent in Days: <span id="leave_days_in_days">{{ (staff.leave_days_remaining / 7.5)|round(2) }}</span> days</p>
+            
+                    <button type="submit" name="update_leave_days">Update Leave Days</button>
+                </form>
+            </div>
+    
+            <!-- Back Home Card in Same Column -->
+            <div class="card">
+                <h2>Back to Home</h2>
+                <p>Click the button below to go back to the home page.</p>
+                <a href="{{ url_for('choose_option', staff_id=staff.id)}}">
+                    <button type="button">Go Back Home</button>
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const weekStartInput = document.getElementById('week_start');
+            const leaveDaysInput = document.getElementById('leave_days_remaining');
+            const leaveDaysInDaysDisplay = document.getElementById('leave_days_in_days');
+            const staffId = {{ staff.id }};
+    
+            // Function to populate utilization data based on the selected week start date
+            function populateUtilizationData(weekStart) {
+                fetch(`/get_staff_data/${staffId}/${weekStart}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        document.getElementById('client_utilization_year_to_date').value = data.client_utilization_year_to_date || '';
+                        document.getElementById('client_utilization_month_to_date').value = data.client_utilization_month_to_date || '';
+                        document.getElementById('resource_utilization_year_to_date').value = data.resource_utilization_year_to_date || '';
+                        document.getElementById('resource_utilization_month_to_date').value = data.resource_utilization_month_to_date || '';
+                    });
+            }
+    
+            // Event listener for the week start input change
+            weekStartInput.addEventListener('change', function() {
+                populateUtilizationData(this.value);
+            });
+    
+            // Function to update the displayed leave days in days (from hours)
+            function updateLeaveDaysInDays() {
+                const hours = parseFloat(leaveDaysInput.value) || 0;
+                const days = (hours / 7.5).toFixed(2); // Convert hours to days (1 day = 7.5 hours)
+                leaveDaysInDaysDisplay.textContent = days; // Update the displayed days
+            }
+    
+            // Event listener for the leave days input change to update the days value dynamically
+            leaveDaysInput.addEventListener('input', updateLeaveDaysInDays);
+    
+            // Populate data and initialize leave days on page load
+            populateUtilizationData(weekStartInput.value);
+            updateLeaveDaysInDays();
+        });
+    </script>
+    
+</body>
+</html>

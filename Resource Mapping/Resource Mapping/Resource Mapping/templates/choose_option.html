@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Choose an Option</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap">
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #dc6900 0%, #ff9e00 100%);
+            color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            text-align: center;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            max-width: 1200px;
+            width: 100%;
+        }
+
+        .card {
+            background: #fff;
+            color: #333;
+            border-radius: 15px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+            padding: 30px;
+            width: 100%;
+            max-width: 500px;
+            text-align: center;
+            transition: transform 0.3s, box-shadow 0.3s, background-color 0.3s;
+            margin: 0 auto;
+        }
+
+        .card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
+        }
+
+        .card h2 {
+            margin: 0 0 15px;
+            font-size: 2em;
+            font-weight: 700;
+        }
+
+        .card p {
+            margin: 0 0 25px;
+            font-size: 1.1em;
+        }
+
+        .card a {
+            display: inline-block;
+            padding: 12px 25px;
+            color: #fff;
+            background: #dc6900;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 700;
+            transition: background 0.3s, color 0.3s;
+        }
+
+        .card a:hover {
+            background: #ff9e00;
+            color: #333;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 30px;
+            font-weight: 700;
+        }
+
+        .flash-message {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            max-width: 300px;
+            width: 100%;
+            z-index: 1000;
+            border-radius: 8px;
+            padding: 15px;
+            color: #fff;
+            font-weight: bold;
+            opacity: 0;
+            transform: translateY(-20px);
+            transition: opacity 0.5s, transform 0.5s;
+        }
+
+        .flash-message.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .flash-message.success {
+            background-color: #28a745;
+        }
+
+        .flash-message.error {
+            background-color: #dc3545;
+        }
+
+        .flash-message.warning {
+            background-color: #ffc107;
+        }
+
+        .flash-message.info {
+            background-color: #17a2b8;
+        }
+
+        @media (min-width: 768px) {
+            .container {
+                flex-direction: row;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="flash-message {{ category }} show">
+            {{ message }}
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <div>
+        <h1>Welcome, {{ staff.name }}!</h1>
+        <div class="container">
+            <div class="card">
+                <h2>Log Hours</h2>
+                <p>Efficiently track your work hours on projects you are working on.</p>
+                <a href="{{ url_for('log_hours', staff_member_id=staff.id) }}">Log Hours</a>
+            </div>
+            <div class="card">
+                <h2>Manage Leave Days</h2>
+                <p>Manage your leave days with ease and convenience.</p>
+                <a href="{{ url_for('edit_leave', staff_id=staff.id) }}">Manage Leave Days</a>
+            </div>
+            <div class="card">
+                <h2>Update Utilization</h2>
+                <p>Keep track of your project and engagement utilization details.</p>
+                <a href="{{ url_for('update_utilization', staff_id=staff.id) }}">Update Utilization</a>
+            </div>
+            <div class="card">
+                <h2>Manage Notifications</h2>
+                <p>Choose whether you need to receive the weekly reminders</p>
+                <a href="{{ url_for('staff_details', staff_id=staff.id) }}">Manage Notifications</a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container" style="max-width: 800px; margin: 50px auto; padding: 20px; background-color: #f9f9f9; border: 1px solid #ddd; border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);">
+    <h2 class="text-center" style="color: #333; font-weight: bold; margin-bottom: 20px; font-size: 24px;">Manage Leave for {{ staff_member.name }}</h2>
+
+    <form method="POST" style="margin-bottom: 20px;">
+        <div class="form-group" style="margin-bottom: 20px;">
+            <label for="leave_date" style="display: block; margin-bottom: 10px;">Select Leave Date:</label>
+            <input type="date" id="leave_date" name="leave_date" required class="form-control" style="width: 150px; height: 35px; padding: 10px; border-radius: 5px; border: 1px solid #ccc;">
+        </div>
+        <button type="submit" class="btn btn-primary" style="background-color: #337ab7; border-color: #337ab7; color: #ffffff; padding: 10px 20px; border-radius: 5px; cursor: pointer;">Add Leave Day</button>
+    </form>
+
+    <h3 class="text-center" style="color: #333; font-weight: bold; margin-bottom: 20px; font-size: 18px;">Leave Records:</h3>
+    <ul style="list-style: none; padding: 0; margin: 0;">
+        {% for record in leave_records %}
+        <li style="padding: 10px; border-bottom: 1px solid #ddd;">
+            {{ record.date.strftime('%Y-%m-%d') }}
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+{% endblock %}

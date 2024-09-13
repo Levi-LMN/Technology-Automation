@@ -304,8 +304,12 @@
 
         <h1>Log Hours for {{ staff_member.name }}</h1>
         <form id="log-hours-form" method="POST">
+        <small>
+        This is where you select the Monday of the week to populate the data. Note that it is automatically set to the current Monday of the week.<br>
+         If you need to change, you can select a Monday from another week, and it will prepopulate the data or allow you to input manually. <br>
+        </small>
             <label for="week_start">Week Start:</label>
-            <input type="date" id="week_start" name="week_start" value="{{ week_start }}" required readonly>
+            <input type="date" id="week_start" name="week_start" value="{{ week_start }}" required >
 
             <div id="hours-container">
                 <!-- Proposals Category -->
@@ -430,7 +434,32 @@
     </div>
 
     <script>
-       $(document).ready(function() {
+$(document).ready(function() {
+    // Set the date input to only allow Mondays
+    $('#week_start').on('input', function() {
+        var selectedDate = new Date(this.value);
+        if (selectedDate.getDay() !== 1) { // 1 represents Monday
+            // Find the nearest Monday
+            var nearestMonday = new Date(selectedDate);
+            nearestMonday.setDate(selectedDate.getDate() + ((1 + 7 - selectedDate.getDay()) % 7));
+            this.value = nearestMonday.toISOString().split('T')[0];
+        }
+        updateDayLabels(this.value, 'proposal');
+        updateDayLabels(this.value, 'engagement');
+        updateDayLabels(this.value, 'nonbillable');
+        updateDailySummary();
+    });
+
+    // Ensure the initial date is set to a Monday
+    function setInitialMonday() {
+        var currentDate = new Date($('#week_start').val());
+        if (currentDate.getDay() !== 1) {
+            currentDate.setDate(currentDate.getDate() - currentDate.getDay() + 1);
+            $('#week_start').val(currentDate.toISOString().split('T')[0]);
+        }
+    }
+    setInitialMonday();
+
     // Initialize day labels with the current week start date
     const weekStartDate = $('#week_start').val();
     updateDayLabels(weekStartDate, 'proposal');
@@ -459,14 +488,14 @@
     function updateDayLabels(startDate, category) {
         const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
         const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-        
+
         for (let i = 0; i < 5; i++) {
             const date = new Date(startDate);
             date.setDate(date.getDate() + i);
             const dayName = days[i];
             const monthName = months[date.getMonth()];
             const dayOfMonth = date.getDate();
-            
+
             const label = `${dayName} ${dayOfMonth}${getOrdinalSuffix(dayOfMonth)} ${monthName}`;
             $(`.${category}-day-label-${i}`).text(label);
         }
@@ -564,22 +593,22 @@
                 $checkbox.prop('checked', true);
                 var $container = $checkbox.closest('div').find('.hours-container');
                 $container.show();
-                
+
                 var allSame = true;
                 var firstValue = null;
-                
+
                 for (var day in existingHours[category][itemId]) {
                     var value = existingHours[category][itemId][day];
                     var $input = $(`input[name="${category}_hours[${itemId}][${day}]"]`);
                     $input.val(value);
-                    
+
                     if (firstValue === null) {
                         firstValue = value;
                     } else if (value !== firstValue) {
                         allSame = false;
                     }
                 }
-                
+
                 if (allSame) {
                     $container.find('.same-hours-checkbox').prop('checked', true).trigger('change');
                     $container.find('.same-hours-input').val(firstValue);

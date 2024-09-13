@@ -253,6 +253,228 @@ def send_all_reminders():
     flash(f"Reminders sent to {reminders_sent} eligible members.", "success")
     return redirect(url_for('view_utilization'))
 
+@app.route('/preview/<int:user_id>')
+def preview_user(user_id):
+    staff_member = Staff.query.get_or_404(user_id)
+
+    # Get all hour logs and leave records for the staff member
+    hours_logs = HoursLog.query.filter_by(staff_id=user_id).order_by(HoursLog.date).all()
+    leave_records = {record.date for record in LeaveRecord.query.filter_by(staff_id=user_id).all()}
+
+    # Get month filter from request args
+    month_filter = request.args.get('month')
+    if month_filter and month_filter != "Show All":
+        try:
+            month_year = datetime.strptime(month_filter, '%B %Y')
+            hours_logs = [log for log in hours_logs if log.date.year == month_year.year and log.date.month == month_year.month]
+        except ValueError:
+            # Handle case where month_filter is not in the expected format
+            pass
+
+    # Organize logs by week (Monday to Friday)
+    logs_by_week = {}
+    month_set = set()  # To collect months with data
+
+    # Fetch names for engagements, proposals, and non-billables
+    engagements = {engagement.id: engagement.name for engagement in Engagement.query.all()}
+    proposals = {proposal.id: proposal.name for proposal in Proposal.query.all()}
+    non_billables = {non_billable.id: non_billable.name for non_billable in NonBillable.query.all()}
+
+    daily_totals = {}  # To store daily totals
+    weekly_totals = {}  # To store weekly totals
+
+    for log in hours_logs:
+        # Week Start and End (Monday to Friday)
+        week_start = log.date - timedelta(days=log.date.weekday())  # Monday of the week
+        week_end = week_start + timedelta(days=4)  # Friday of the week
+
+        if week_start not in logs_by_week:
+            logs_by_week[week_start] = {
+                'end': week_end,
+                'logs': {},
+                'month': log.date.strftime('%B %Y')
+            }
+        if log.date not in logs_by_week[week_start]['logs']:
+            logs_by_week[week_start]['logs'][log.date] = []
+
+        # Determine item name based on category
+        item_name = ""
+        if log.category == 'engagement':
+            item_name = engagements.get(log.item_id, 'Unknown Engagement')
+        elif log.category == 'proposal':
+            item_name = proposals.get(log.item_id, 'Unknown Proposal')
+        elif log.category == 'non_billable':
+            item_name = non_billables.get(log.item_id, 'Unknown Non-Billable')
+        else:
+            item_name = 'Unknown Category'
+
+        logs_by_week[week_start]['logs'][log.date].append({
+            'category': log.category,
+            'hours': log.hours,
+            'item_name': item_name
+        })
+
+        # Calculate daily totals
+        if log.date not in daily_totals:
+            daily_totals[log.date] = 0
+        daily_totals[log.date] += log.hours
+
+        # Calculate weekly totals
+        if week_start not in weekly_totals:
+            weekly_totals[week_start] = 0
+        weekly_totals[week_start] += log.hours
+
+        month_set.add(log.date.strftime('%B %Y'))
+
+    # Mark days with leave
+    for week_start, week_data in logs_by_week.items():
+        for date in week_data['logs']:
+            if date in leave_records:
+                for log in week_data['logs'][date]:
+                    log['item_name'] = 'User was on leave'
+
+    # Paginate the results
+    page = request.args.get('page', 1, type=int)
+    per_page = 5
+    paginated_weeks = list(logs_by_week.items())[(page - 1) * per_page: page * per_page]
+    total_pages = (len(logs_by_week) + per_page - 1) // per_page
+
+    return render_template('preview.html', staff_member=staff_member, logs_by_week=paginated_weeks,
+                           month_list=sorted(month_set), current_page=page, total_pages=total_pages,
+                           daily_totals=daily_totals, weekly_totals=weekly_totals)
+
+@app.route('/log_hours/<int:staff_member_id>', methods=['GET', 'POST'])
+def log_hours(staff_member_id):
+    staff_member = Staff.query.get_or_404(staff_member_id)
+    proposals = Proposal.query.filter_by(status='Active').all()
+    engagements = Engagement.query.filter_by(status='Active').all()
+    non_billables = NonBillable.query.all()
+
+    if request.method == 'POST':
+        try:
+            week_start = datetime.strptime(request.form.get('week_start'), '%Y-%m-%d').date()
+        except ValueError:
+            flash('Invalid week start date format. Please use YYYY-MM-DD.', 'error')
+            return redirect(url_for('log_hours', staff_member_id=staff_member_id))
+
+        errors = []
+
+        categories = [
+            ('proposal', 'proposal_ids', 'proposal_hours'),
+            ('engagement', 'engagement_ids', 'engagement_hours'),
+            ('non_billable', 'nonbillable_ids', 'nonbillable_hours')
+        ]
+
+        hours_logged = False
+        for day in range(5):  # Monday to Friday
+            current_date = week_start + timedelta(days=day)
+
+            # Delete existing logs for this date
+            try:
+                HoursLog.query.filter_by(
+                    staff_id=staff_member.id,
+                    date=current_date
+                ).delete()
+            except Exception as e:
+                flash(f'Error deleting existing logs for {current_date}: {str(e)}', 'error')
+                return redirect(url_for('log_hours', staff_member_id=staff_member_id))
+
+            for category, id_field, hours_field in categories:
+                ids = request.form.getlist(f'{id_field}[]')
+                hours = request.form.to_dict()
+
+                for item_id in ids:
+                    item_hours = hours.get(f"{hours_field}[{item_id}][{day}]")
+                    if item_hours:
+                        try:
+                            item_hours = float(item_hours)
+                            hours_log = HoursLog(
+                                staff_id=staff_member.id,
+                                category=category,
+                                item_id=int(item_id),
+                                hours=item_hours,
+                                date=current_date
+                            )
+                            db.session.add(hours_log)
+                            hours_logged = True
+                        except ValueError:
+                            errors.append(f"Invalid hours format for {category} item {item_id} on {current_date}.")
+                        except Exception as e:
+                            flash(f'Error logging hours for {category} item {item_id} on {current_date}: {str(e)}', 'error')
+                            return redirect(url_for('log_hours', staff_member_id=staff_member_id))
+
+        if errors:
+            for error in errors:
+                flash(error, 'error')
+            return redirect(url_for('log_hours', staff_member_id=staff_member_id))
+
+        if not hours_logged:
+            flash('Please log hours for at least one day and category.', 'error')
+            return redirect(url_for('log_hours', staff_member_id=staff_member_id))
+
+        try:
+            db.session.commit()
+        except Exception as e:
+            flash(f'Error committing changes: {str(e)}', 'error')
+            return redirect(url_for('log_hours', staff_member_id=staff_member_id))
+
+        flash('Hours successfully logged for the week.', 'success')
+        return redirect(url_for('thank_you', staff_id=staff_member_id))
+
+
+    # For GET requests
+    week_start = request.args.get('week_start')
+    if week_start:
+        try:
+            week_start = datetime.strptime(week_start, '%Y-%m-%d').date()
+        except ValueError:
+            flash('Invalid week start date format. Please use YYYY-MM-DD.', 'error')
+            return redirect(url_for('log_hours', staff_member_id=staff_member_id))
+    else:
+        today = datetime.now().date()
+        week_start = today - timedelta(days=today.weekday())
+
+    # Retrieve existing logs for the selected week
+    try:
+        existing_logs = HoursLog.query.filter(
+            HoursLog.staff_id == staff_member.id,
+            HoursLog.date >= week_start,
+            HoursLog.date < week_start + timedelta(days=5)
+        ).all()
+    except Exception as e:
+        flash(f'Error retrieving existing logs: {str(e)}', 'error')
+        return redirect(url_for('log_hours', staff_member_id=staff_member_id))
+
+    existing_hours = {}
+    for log in existing_logs:
+        day_index = (log.date - week_start).days
+        if 0 <= day_index < 5:  # Ensure it's within the work week
+            # Change 'non_billable' to 'nonbillable' to match the HTML
+            category = 'nonbillable' if log.category == 'non_billable' else log.category
+            existing_hours.setdefault(category, {}).setdefault(log.item_id, {})[day_index] = log.hours
+
+    # Add debug print statements
+    print("Existing hours:", existing_hours)
+    print("Non-billables:", non_billables)
+
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        # If it's an AJAX request, return JSON data
+        return jsonify({
+            'existing_hours': existing_hours,
+            'week_start': week_start.strftime('%Y-%m-%d')
+        })
+
+    return render_template(
+        'log_hours.html',
+        staff_member=staff_member,
+        proposals=proposals,
+        engagements=engagements,
+        non_billables=non_billables,
+        existing_hours=existing_hours,
+        week_start=week_start.strftime('%Y-%m-%d')
+    )
+
+
 @app.route('/members')
 def members():
     today = datetime.now().date()
@@ -280,7 +502,78 @@ def members():
 
     return render_template('members.html', members=member_data)
 
+from datetime import datetime, timedelta
+from flask import flash, redirect, url_for
+from flask_mail import Message
 
+@app.route('/send_monthly_forecast_email', methods=['POST'])
+def send_monthly_forecast_email():
+    members = Staff.query.filter_by(is_team_leader=False, receive_notifications=True).all()
+    emails_sent = 0
+
+    # Calculate the dates for the next two weeks
+    today = datetime.now().date()
+    next_monday = today + timedelta(days=(7 - today.weekday()))
+    week_after_next_monday = next_monday + timedelta(days=7)
+    end_date = week_after_next_monday + timedelta(days=4)  # Friday of the week after next
+
+    for member in members:
+        log_hours_url = url_for('log_hours', staff_member_id=member.id, _external=True)
+        preview_url = url_for('preview_user', user_id=member.id, _external=True)
+
+        msg = Message(
+            "Action Required: September Forecast and Data Verification",
+            recipients=[member.email]
+        )
+        msg.html = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;">
+            <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);">
+                <h2 style="color: #e3721c; text-align: center;">September Forecast and Data Verification</h2>
+                <p style="font-size: 16px; color: #333;">
+                    Dear <strong>{member.name}</strong>,
+                </p>
+                <p style="font-size: 16px; color: #333;">
+                    Jane requires you to fill in your forecast for the remainder of September. Currently, we have data up to September 13th for most members.
+                </p>
+                <p style="font-size: 16px; color: #333;">
+                    Please follow these steps:
+                </p>
+                <ol style="font-size: 16px; color: #333;">
+                    <li>Go to the <a href="{log_hours_url}" style="color: #e3721c;">Log Hours page</a>.</li>
+                    <li>Log data for the following weeks:
+                        <ul>
+                            <li>Week starting Monday, {next_monday.strftime('%B %d, %Y')}</li>
+                            <li>Week starting Monday, {week_after_next_monday.strftime('%B %d, %Y')}</li>
+                        </ul>
+                    </li>
+                    <li>Fill in your expected hours for each week up to Friday, {end_date.strftime('%B %d, %Y')}.</li>
+                    <li>If you don't have visibility into your work for a particular week, you may leave it open.</li>
+                    <li>Submit each week's data separately.</li>
+                    <li>You can edit previously entered data by selecting the relevant week.</li>
+                </ol>
+                <p style="font-size: 16px; color: #333;">
+                    Additionally, please <a href="{preview_url}" style="color: #e3721c;">review your current data</a> in the system for accuracy.
+                </p>
+                <p style="font-size: 16px; color: #333; font-weight: bold;">
+                    Important: Please verify your data by 2 PM today. The information will be forwarded to Laolu after this time.
+                </p>
+                <p style="font-size: 12px; color: #999; text-align: center; margin-top: 20px;">
+                    This is an automated email. Please do not reply to this message.
+                </p>
+            </div>
+        </body>
+        </html>
+        """
+
+        try:
+            mail.send(msg)
+            emails_sent += 1
+        except Exception as e:
+            flash(f"Failed to send email to {member.name}: {str(e)}", "error")
+
+    flash(f"Monthly forecast emails sent to {emails_sent} eligible members.", "success")
+    return redirect(url_for('view_utilization'))
 
 @app.route('/choose_option/<int:staff_id>')
 def choose_option(staff_id):
@@ -584,136 +877,6 @@ def add_non_billable():
         return redirect(url_for('index'))
     return render_template('add_non_billable.html')
 
-@app.route('/log_hours/<int:staff_member_id>', methods=['GET', 'POST'])
-def log_hours(staff_member_id):
-    staff_member = Staff.query.get_or_404(staff_member_id)
-    proposals = Proposal.query.filter_by(status='Active').all()
-    engagements = Engagement.query.filter_by(status='Active').all()
-    non_billables = NonBillable.query.all()
-
-    if request.method == 'POST':
-        try:
-            week_start = datetime.strptime(request.form.get('week_start'), '%Y-%m-%d').date()
-        except ValueError:
-            flash('Invalid week start date format. Please use YYYY-MM-DD.', 'error')
-            return redirect(url_for('log_hours', staff_member_id=staff_member_id))
-
-        errors = []
-
-        categories = [
-            ('proposal', 'proposal_ids', 'proposal_hours'),
-            ('engagement', 'engagement_ids', 'engagement_hours'),
-            ('non_billable', 'nonbillable_ids', 'nonbillable_hours')
-        ]
-
-        hours_logged = False
-        for day in range(5):  # Monday to Friday
-            current_date = week_start + timedelta(days=day)
-
-            # Delete existing logs for this date
-            try:
-                HoursLog.query.filter_by(
-                    staff_id=staff_member.id,
-                    date=current_date
-                ).delete()
-            except Exception as e:
-                flash(f'Error deleting existing logs for {current_date}: {str(e)}', 'error')
-                return redirect(url_for('log_hours', staff_member_id=staff_member_id))
-
-            for category, id_field, hours_field in categories:
-                ids = request.form.getlist(f'{id_field}[]')
-                hours = request.form.to_dict()
-
-                for item_id in ids:
-                    item_hours = hours.get(f"{hours_field}[{item_id}][{day}]")
-                    if item_hours:
-                        try:
-                            item_hours = float(item_hours)
-                            hours_log = HoursLog(
-                                staff_id=staff_member.id,
-                                category=category,
-                                item_id=int(item_id),
-                                hours=item_hours,
-                                date=current_date
-                            )
-                            db.session.add(hours_log)
-                            hours_logged = True
-                        except ValueError:
-                            errors.append(f"Invalid hours format for {category} item {item_id} on {current_date}.")
-                        except Exception as e:
-                            flash(f'Error logging hours for {category} item {item_id} on {current_date}: {str(e)}', 'error')
-                            return redirect(url_for('log_hours', staff_member_id=staff_member_id))
-
-        if errors:
-            for error in errors:
-                flash(error, 'error')
-            return redirect(url_for('log_hours', staff_member_id=staff_member_id))
-
-        if not hours_logged:
-            flash('Please log hours for at least one day and category.', 'error')
-            return redirect(url_for('log_hours', staff_member_id=staff_member_id))
-
-        try:
-            db.session.commit()
-        except Exception as e:
-            flash(f'Error committing changes: {str(e)}', 'error')
-            return redirect(url_for('log_hours', staff_member_id=staff_member_id))
-
-        flash('Hours successfully logged for the week.', 'success')
-        return redirect(url_for('thank_you', staff_id=staff_member_id))
-
-
-    # For GET requests
-    week_start = request.args.get('week_start')
-    if week_start:
-        try:
-            week_start = datetime.strptime(week_start, '%Y-%m-%d').date()
-        except ValueError:
-            flash('Invalid week start date format. Please use YYYY-MM-DD.', 'error')
-            return redirect(url_for('log_hours', staff_member_id=staff_member_id))
-    else:
-        today = datetime.now().date()
-        week_start = today - timedelta(days=today.weekday())
-
-    # Retrieve existing logs for the selected week
-    try:
-        existing_logs = HoursLog.query.filter(
-            HoursLog.staff_id == staff_member.id,
-            HoursLog.date >= week_start,
-            HoursLog.date < week_start + timedelta(days=5)
-        ).all()
-    except Exception as e:
-        flash(f'Error retrieving existing logs: {str(e)}', 'error')
-        return redirect(url_for('log_hours', staff_member_id=staff_member_id))
-
-    existing_hours = {}
-    for log in existing_logs:
-        day_index = (log.date - week_start).days
-        if 0 <= day_index < 5:  # Ensure it's within the work week
-            # Change 'non_billable' to 'nonbillable' to match the HTML
-            category = 'nonbillable' if log.category == 'non_billable' else log.category
-            existing_hours.setdefault(category, {}).setdefault(log.item_id, {})[day_index] = log.hours
-
-    # Add debug print statements
-    print("Existing hours:", existing_hours)
-    print("Non-billables:", non_billables)
-
-    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        # If it's an AJAX request, return JSON data
-        return jsonify({
-            'existing_hours': existing_hours,
-            'week_start': week_start.strftime('%Y-%m-%d')
-        })
-
-    return render_template(
-        'log_hours.html',
-        staff_member=staff_member,
-        proposals=proposals,
-        engagements=engagements,
-        non_billables=non_billables,
-        existing_hours=existing_hours,
-        week_start=week_start.strftime('%Y-%m-%d')
-    )
 
 @app.route('/generate_excel')
 def generate_excel():
@@ -1464,85 +1627,9 @@ from datetime import timedelta
 from calendar import monthrange
 
 
-@app.route('/preview/<int:user_id>')
-def preview_user(user_id):
-    staff_member = Staff.query.get_or_404(user_id)
+from flask import request, render_template
+from datetime import datetime, timedelta
 
-    # Get all hour logs and leave records for the staff member
-    hours_logs = HoursLog.query.filter_by(staff_id=user_id).order_by(HoursLog.date).all()
-    leave_records = {record.date for record in LeaveRecord.query.filter_by(staff_id=user_id).all()}
-
-    # Organize logs by week (Monday to Friday)
-    logs_by_week = {}
-    month_set = set()  # To collect months with data
-
-    # Fetch names for engagements, proposals, and non-billables
-    engagements = {engagement.id: engagement.name for engagement in Engagement.query.all()}
-    proposals = {proposal.id: proposal.name for proposal in Proposal.query.all()}
-    non_billables = {non_billable.id: non_billable.name for non_billable in NonBillable.query.all()}
-
-    daily_totals = {}  # To store daily totals
-    weekly_totals = {}  # To store weekly totals
-
-    for log in hours_logs:
-        # Week Start and End (Monday to Friday)
-        week_start = log.date - timedelta(days=log.date.weekday())  # Monday of the week
-        week_end = week_start + timedelta(days=4)  # Friday of the week
-
-        if week_start not in logs_by_week:
-            logs_by_week[week_start] = {
-                'end': week_end,
-                'logs': {},
-                'month': log.date.strftime('%B %Y')
-            }
-        if log.date not in logs_by_week[week_start]['logs']:
-            logs_by_week[week_start]['logs'][log.date] = []
-
-        # Determine item name based on category
-        item_name = ""
-        if log.category == 'engagement':
-            item_name = engagements.get(log.item_id, 'Unknown Engagement')
-        elif log.category == 'proposal':
-            item_name = proposals.get(log.item_id, 'Unknown Proposal')
-        elif log.category == 'non_billable':
-            item_name = non_billables.get(log.item_id, 'Unknown Non-Billable')
-        else:
-            item_name = 'Unknown Category'
-
-        logs_by_week[week_start]['logs'][log.date].append({
-            'category': log.category,
-            'hours': log.hours,
-            'item_name': item_name
-        })
-
-        # Calculate daily totals
-        if log.date not in daily_totals:
-            daily_totals[log.date] = 0
-        daily_totals[log.date] += log.hours
-
-        # Calculate weekly totals
-        if week_start not in weekly_totals:
-            weekly_totals[week_start] = 0
-        weekly_totals[week_start] += log.hours
-
-        month_set.add(log.date.strftime('%B %Y'))
-
-    # Mark days with leave
-    for week_start, week_data in logs_by_week.items():
-        for date in week_data['logs']:
-            if date in leave_records:
-                for log in week_data['logs'][date]:
-                    log['item_name'] = 'User was on leave'
-
-    # Paginate the results
-    page = request.args.get('page', 1, type=int)
-    per_page = 5
-    paginated_weeks = list(logs_by_week.items())[(page - 1) * per_page: page * per_page]
-    total_pages = (len(logs_by_week) + per_page - 1) // per_page
-
-    return render_template('preview.html', staff_member=staff_member, logs_by_week=paginated_weeks,
-                           month_list=sorted(month_set), current_page=page, total_pages=total_pages,
-                           daily_totals=daily_totals, weekly_totals=weekly_totals)
 
 
 if __name__ == '__main__':

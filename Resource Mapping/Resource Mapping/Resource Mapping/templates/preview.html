@@ -27,9 +27,9 @@
             background-color: #dc6900; /* Darker primary color */
             color: white;
             padding: 20px;
+            position: relative; /* Changed to relative to position the button absolutely */
             text-align: center;
             box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-            position: sticky;
             top: 0;
             z-index: 1000;
         }
@@ -38,6 +38,25 @@
             font-size: 32px;
             font-weight: 300;
             text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+        }
+        .header-button {
+            display: inline-block;
+            padding: 8px 16px; /* Smaller padding */
+            font-size: 14px; /* Smaller font size */
+            border-radius: 4px; /* Adjust border radius */
+            background-color: #ffffff;
+            color: #dc6900; /* Primary color */
+            text-decoration: none;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: background-color 0.3s, color 0.3s, box-shadow 0.3s;
+            position: absolute; /* Position absolute to place it at the top left */
+            top: 20px; /* Adjust as needed */
+            left: 20px; /* Adjust as needed */
+        }
+        .header-button:hover {
+            background-color: #dc6900; /* Darker primary color */
+            color: white;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
         }
         .container {
             max-width: 1200px;
@@ -162,19 +181,14 @@
 </head>
 <body>
     <header>
+        <a href="{{ url_for('choose_option', staff_id=staff_member.id) }}" class="header-button">
+            Click here to make changes to this data
+        </a>
         <h1>{{ staff_member.name }}'s Preview</h1>
     </header>
 
     <div class="container">
         <div class="content-container">
-            <label for="monthFilter">Filter by Month:</label>
-            <select id="monthFilter" onchange="location = this.value;">
-                <option value="#">Select Month</option>
-                {% for month in month_list %}
-                    <option value="{{ url_for('preview_user', user_id=staff_member.id) }}?month={{ month }}">{{ month }}</option>
-                {% endfor %}
-            </select>
-
             {% if logs_by_week %}
                 {% for week_start, week_data in logs_by_week %}
                     <div class="collapsible">

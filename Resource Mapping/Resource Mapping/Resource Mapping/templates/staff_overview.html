@@ -20,8 +20,13 @@
         }
     </style>
 
+
+
     <div class="container">
         <h1 class="text-center mb-4">Staff Overview</h1>
+    <form action="{{ url_for('send_monthly_forecast_email') }}" method="post">
+    <button type="submit" class="btn btn-primary">Send Monthly Forecast Emails</button>
+</form>
         <table class="table table-striped">
             <thead>
                 <tr>

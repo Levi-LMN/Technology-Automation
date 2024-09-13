@@ -20,13 +20,8 @@
         }
     </style>
 
-
-
     <div class="container">
         <h1 class="text-center mb-4">Staff Overview</h1>
-    <form action="{{ url_for('send_monthly_forecast_email') }}" method="post">
-    <button type="submit" class="btn btn-primary">Send Monthly Forecast Emails</button>
-</form>
         <table class="table table-striped">
             <thead>
                 <tr>
@@ -34,7 +29,8 @@
                     <th>Name</th>
                     <th>Email</th>
                     <th>Team Leader</th>
-                    <th>receive notifications</th>
+                    <th>Receive Notifications</th>
+                    <th>Action</th>
                 </tr>
             </thead>
             <tbody>
@@ -45,6 +41,11 @@
                     <td>{{ staff.email }}</td>
                     <td>{{ 'Yes' if staff.is_team_leader else 'No' }}</td>
                     <td>{{ 'Yes' if staff.receive_notifications else 'No' }}</td>
+                    <td>
+                        <form action="{{ url_for('send_individual_email', staff_id=staff.id) }}" method="post">
+                            <button type="submit" class="btn btn-primary btn-sm">Send Email</button>
+                        </form>
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>

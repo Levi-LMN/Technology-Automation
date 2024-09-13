@@ -575,6 +575,80 @@ def send_monthly_forecast_email():
     flash(f"Monthly forecast emails sent to {emails_sent} eligible members.", "success")
     return redirect(url_for('view_utilization'))
 
+from flask import url_for, flash, redirect
+from flask_mail import Message
+from datetime import datetime, timedelta
+
+@app.route('/send_individual_email/<int:staff_id>', methods=['POST'])
+def send_individual_email(staff_id):
+    member = Staff.query.get_or_404(staff_id)
+
+    if not member.receive_notifications:
+        flash(f"{member.name} is not set to receive notifications.", "warning")
+        return redirect(url_for('view_utilization'))
+
+    # Calculate the dates for the next two weeks
+    today = datetime.now().date()
+    next_monday = today + timedelta(days=(7 - today.weekday()))
+    week_after_next_monday = next_monday + timedelta(days=7)
+    end_date = week_after_next_monday + timedelta(days=4)  # Friday of the week after next
+
+    log_hours_url = url_for('log_hours', staff_member_id=member.id, _external=True)
+    preview_url = url_for('preview_user', user_id=member.id, _external=True)
+
+    msg = Message(
+        "Action Required: September Forecast and Data Verification",
+        recipients=[member.email]
+    )
+    msg.html = f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);">
+            <h2 style="color: #e3721c; text-align: center;">September Forecast and Data Verification</h2>
+            <p style="font-size: 16px; color: #333;">
+                Dear <strong>{member.name}</strong>,
+            </p>
+            <p style="font-size: 16px; color: #333;">
+                Jane requires you to fill in your forecast for the remainder of September. Currently, we have data up to September 13th for most members.
+            </p>
+            <p style="font-size: 16px; color: #333;">
+                Please follow these steps:
+            </p>
+            <ol style="font-size: 16px; color: #333;">
+                <li>Go to the <a href="{log_hours_url}" style="color: #e3721c;">Log Hours page</a>.</li>
+                <li>Log data for the following weeks:
+                    <ul>
+                        <li>Week starting Monday, {next_monday.strftime('%B %d, %Y')}</li>
+                        <li>Week starting Monday, {week_after_next_monday.strftime('%B %d, %Y')}</li>
+                    </ul>
+                </li>
+                <li>Fill in your expected hours for each week up to Friday, {end_date.strftime('%B %d, %Y')}.</li>
+                <li>If you don't have visibility into your work for a particular week, you may leave it open.</li>
+                <li>Submit each week's data separately.</li>
+                <li>You can edit previously entered data by selecting the relevant week.</li>
+            </ol>
+            <p style="font-size: 16px; color: #333;">
+                Additionally, please <a href="{preview_url}" style="color: #e3721c;">review your current data</a> in the system for accuracy.
+            </p>
+            <p style="font-size: 16px; color: #333; font-weight: bold;">
+                Important: Please verify your data by 2 PM today. The information will be forwarded to Laolu after this time.
+            </p>
+            <p style="font-size: 12px; color: #999; text-align: center; margin-top: 20px;">
+                This is an automated email. Please do not reply to this message.
+            </p>
+        </div>
+    </body>
+    </html>
+    """
+
+    try:
+        mail.send(msg)
+        flash(f"Email sent successfully to {member.name}.", "success")
+    except Exception as e:
+        flash(f"Failed to send email to {member.name}: {str(e)}", "error")
+
+    return redirect(url_for('view_utilization'))
+
 @app.route('/choose_option/<int:staff_id>')
 def choose_option(staff_id):
     staff = Staff.query.get_or_404(staff_id)

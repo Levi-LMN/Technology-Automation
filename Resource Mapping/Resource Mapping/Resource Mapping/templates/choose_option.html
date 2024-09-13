@@ -15,16 +15,18 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
+            min-height: 100vh;
             text-align: center;
         }
 
         .container {
             display: flex;
-            flex-direction: column;
+            flex-wrap: wrap;
+            justify-content: center;
             gap: 20px;
             max-width: 1200px;
             width: 100%;
+            padding: 20px;
         }
 
         .card {
@@ -34,10 +36,9 @@
             box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
             padding: 30px;
             width: 100%;
-            max-width: 500px;
+            max-width: 300px;
             text-align: center;
             transition: transform 0.3s, box-shadow 0.3s, background-color 0.3s;
-            margin: 0 auto;
         }
 
         .card:hover {
@@ -47,13 +48,13 @@
 
         .card h2 {
             margin: 0 0 15px;
-            font-size: 2em;
+            font-size: 1.5em;
             font-weight: 700;
         }
 
         .card p {
             margin: 0 0 25px;
-            font-size: 1.1em;
+            font-size: 1em;
         }
 
         .card a {
@@ -79,7 +80,7 @@
         }
 
         .flash-message {
-            position: absolute;
+            position: fixed;
             top: 20px;
             right: 20px;
             max-width: 300px;
@@ -115,10 +116,14 @@
             background-color: #17a2b8;
         }
 
-        @media (min-width: 768px) {
+        @media (max-width: 767px) {
             .container {
-                flex-direction: row;
-                justify-content: center;
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .card {
+                max-width: 90%;
             }
         }
     </style>
@@ -144,18 +149,23 @@
             </div>
             <div class="card">
                 <h2>Manage Leave Days</h2>
-                <p>Manage your leave days with ease and convenience.</p>
+                <p>Add or remove days you have already gone for leave</p>
                 <a href="{{ url_for('edit_leave', staff_id=staff.id) }}">Manage Leave Days</a>
             </div>
             <div class="card">
                 <h2>Update Utilization</h2>
-                <p>Keep track of your project and engagement utilization details.</p>
+                <p>Submit and update your utilization numbers</p>
                 <a href="{{ url_for('update_utilization', staff_id=staff.id) }}">Update Utilization</a>
             </div>
             <div class="card">
                 <h2>Manage Notifications</h2>
                 <p>Choose whether you need to receive the weekly reminders</p>
                 <a href="{{ url_for('staff_details', staff_id=staff.id) }}">Manage Notifications</a>
+            </div>
+            <div class="card">
+                <h2>Preview  Page</h2>
+                <p>This is a Summary of the hours you have logged</p>
+                <a href="{{ url_for('preview_user', user_id=staff.id) }}">Preview Profile</a>
             </div>
         </div>
     </div>

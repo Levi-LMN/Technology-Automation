@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Preview - {{ staff_member.name }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/js/all.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            $('.collapsible').click(function() {
+                $(this).next('.content').slideToggle();
+                $(this).find('.toggle-icon').toggleClass('fa-chevron-down fa-chevron-up');
+            });
+        });
+    </script>
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            background: #f4f4f4;
+            margin: 0;
+            padding: 0;
+            color: #333;
+        }
+        header {
+            background-color: #dc6900; /* Darker primary color */
+            color: white;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+        h1 {
+            margin: 0;
+            font-size: 32px;
+            font-weight: 300;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+        }
+        .container {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+            overflow: hidden;
+            background-color: #dc6900; /* Primary color */
+        }
+        .content-container {
+            background-color: #ffffff;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        label {
+            font-weight: 500;
+            font-size: 18px;
+            color: #333;
+        }
+        select {
+            padding: 12px;
+            margin: 10px 0 20px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            transition: border-color 0.3s;
+        }
+        select:hover {
+            border-color: #dc6900; /* Darker primary color */
+        }
+        .collapsible {
+            cursor: pointer;
+            background-color: #a32020; /* Darker shade of primary color */
+            color: white;
+            border: none;
+            padding: 15px;
+            margin: 5px 0;
+            font-size: 20px;
+            border-radius: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background-color 0.3s, box-shadow 0.3s;
+        }
+        .collapsible:hover {
+            background-color: #dc6900; /* Darker primary color */
+            box-shadow: 0 6px 12px rgba(0,0,0,0.2);
+        }
+        .toggle-icon {
+            font-size: 18px;
+            transition: transform 0.3s;
+        }
+        .content {
+            display: none;
+            padding: 20px;
+            background-color: #f9f9f9;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            background-color: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+            vertical-align: middle;
+        }
+        th {
+            background-color: #dc6900; /* Primary color */
+            color: white;
+            font-weight: 600;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        tr:hover {
+            background-color: #f1f1f1;
+        }
+        .pagination {
+            text-align: center;
+            margin: 20px 0;
+        }
+        .pagination a {
+            display: inline-block;
+            padding: 12px 24px;
+            margin: 0 5px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            text-decoration: none;
+            color: #333;
+            background-color: #ffffff;
+            font-size: 18px;
+            transition: background-color 0.3s, color 0.3s, box-shadow 0.3s;
+        }
+        .pagination a.active {
+            background-color: #dc6900; /* Darker primary color */
+            color: white;
+            border: 1px solid #dc6900; /* Darker primary color */
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        .pagination a:hover {
+            background-color: #f1f1f1;
+        }
+        .no-logs {
+            text-align: center;
+            color: #888;
+            font-size: 18px;
+            font-weight: 300;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>{{ staff_member.name }}'s Preview</h1>
+    </header>
+
+    <div class="container">
+        <div class="content-container">
+            <label for="monthFilter">Filter by Month:</label>
+            <select id="monthFilter" onchange="location = this.value;">
+                <option value="#">Select Month</option>
+                {% for month in month_list %}
+                    <option value="{{ url_for('preview_user', user_id=staff_member.id) }}?month={{ month }}">{{ month }}</option>
+                {% endfor %}
+            </select>
+
+            {% if logs_by_week %}
+                {% for week_start, week_data in logs_by_week %}
+                    <div class="collapsible">
+                        Week starting: {{ week_start.strftime('%A, %d %B %Y') }} to {{ week_data['end'].strftime('%A, %d %B %Y') }}
+                        <i class="toggle-icon fas fa-chevron-down"></i>
+                    </div>
+                    <div class="content">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Category</th>
+                                    <th>Hours</th>
+                                    <th>Item Name</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for date, logs in week_data['logs'].items() %}
+                                    <tr>
+                                        <td colspan="4"><strong>{{ date.strftime('%A, %d %B %Y') }} - Total Hours: {{ daily_totals[date] }}</strong></td>
+                                    </tr>
+                                    {% for log in logs %}
+                                        <tr>
+                                            <td>{{ date.strftime('%A, %d %B %Y') }}</td>
+                                            <td>{{ log['category'] }}</td>
+                                            <td>{{ log['hours'] if log['item_name'] != 'User was on leave' else '' }}</td>
+                                            <td>{{ log['item_name'] }}</td>
+                                        </tr>
+                                    {% endfor %}
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        <p><strong>Weekly Total Hours: {{ weekly_totals[week_start] }}</strong></p>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <p class="no-logs">No logs found for this period.</p>
+            {% endif %}
+
+            <div class="pagination">
+                {% if current_page > 1 %}
+                    <a href="{{ url_for('preview_user', user_id=staff_member.id, page=current_page-1) }}">
+                        <i class="fas fa-chevron-left"></i> Previous
+                    </a>
+                {% endif %}
+                {% for page_num in range(1, total_pages + 1) %}
+                    <a href="{{ url_for('preview_user', user_id=staff_member.id, page=page_num) }}" class="{{ 'active' if page_num == current_page else '' }}">{{ page_num }}</a>
+                {% endfor %}
+                {% if current_page < total_pages %}
+                    <a href="{{ url_for('preview_user', user_id=staff_member.id, page=current_page+1) }}">
+                        Next <i class="fas fa-chevron-right"></i>
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</body>
+</html>

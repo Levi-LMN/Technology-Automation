@@ -91,49 +91,34 @@ class Utilization(db.Model):
                 f"resource_utilization_year_to_date={self.resource_utilization_year_to_date}, "
                 f"resource_utilization_month_to_date={self.resource_utilization_month_to_date})")
 
-@app.route('/members')
-def members():
-    today = datetime.now().date()
-    start_of_week = today - timedelta(days=today.weekday())
-    end_of_week = start_of_week + timedelta(days=6)
 
-    members = Staff.query.all()
-    member_data = []
 
-    for member in members:
-        last_utilization = Utilization.query.filter_by(staff_id=member.id).order_by(Utilization.week_start.desc()).first()
-        last_hours_log = HoursLog.query.filter_by(staff_id=member.id).order_by(HoursLog.date.desc()).first()
-
-        utilization_in_week = last_utilization and start_of_week <= last_utilization.week_start <= end_of_week
-        hours_log_in_week = last_hours_log and start_of_week <= last_hours_log.date <= end_of_week
-
-        member_data.append({
-            'id': member.id,
-            'name': member.name,
-            'email': member.email,
-            'last_utilization_week': last_utilization.week_start if last_utilization else None,
-            'last_hours_log_date': last_hours_log.date if last_hours_log else None,
-            'show_reminder': not (utilization_in_week and hours_log_in_week)
-        })
-
-    return render_template('members.html', members=member_data)
 
 @app.route('/send_reminder/<int:member_id>', methods=['POST'])
 def send_reminder(member_id):
     member = Staff.query.get_or_404(member_id)
-    
+
+    # Check if the member wants to receive notifications and is not a team leader
+    if not member.receive_notifications:
+        flash(f"Cannot send reminder to {member.name}: User has opted out of notifications.", "warning")
+        return redirect(url_for('view_utilization'))
+
+    if member.is_team_leader:
+        flash(f"Cannot send reminder to {member.name}: User is a team leader.", "warning")
+        return redirect(url_for('view_utilization'))
+
     # Get the current week dates
     today = datetime.now().date()
     start_of_week = today - timedelta(days=today.weekday())
     end_of_week = start_of_week + timedelta(days=6)
-    
+
     # Check if the member has logged utilization and hours for the current week
     last_utilization = Utilization.query.filter_by(staff_id=member.id).order_by(Utilization.week_start.desc()).first()
     last_hours_log = HoursLog.query.filter_by(staff_id=member.id).order_by(HoursLog.date.desc()).first()
 
     utilization_in_week = last_utilization and start_of_week <= last_utilization.week_start <= end_of_week
     hours_log_in_week = last_hours_log and start_of_week <= last_hours_log.date <= end_of_week
-    
+
     # Prepare the message based on what the user has or hasn't logged
     if not utilization_in_week and not hours_log_in_week:
         missing_info = "both your utilization numbers and hours log"
@@ -142,53 +127,52 @@ def send_reminder(member_id):
     elif not hours_log_in_week:
         missing_info = "your hours log"
     else:
-        # If both are logged, no reminder needed (but this should not happen as per previous logic)
-        missing_info = None
-    
-    if missing_info:
-        # URL to the "choose option" page with the staff member's ID
-        choose_option_url = url_for('choose_option', staff_id=member.id, _external=True)
-        
-        # Styled HTML email content with the new theme color
-        msg = Message(
-            "Reminder: Please Update Your Weekly Numbers",
-            recipients=[member.email]
-        )
-        msg.html = f"""
-            <html>
-            <body style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;">
-                <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);">
-                    <h2 style="color: #e3721c; text-align: center;">Reminder to Update Your Weekly Logs</h2>
-                    <p style="font-size: 16px; color: #333;">
-                        Dear <strong>{member.name}</strong>,
-                    </p>
-                    <p style="font-size: 16px; color: #333;">
-                        We noticed that you have not yet updated <strong>{missing_info}</strong> for the current week 
-                        ({start_of_week.strftime('%B %d')} to {end_of_week.strftime('%B %d')}).
-                    </p>
-                    <p style="font-size: 16px; color: #333;">
-                        Please log in to the system at your earliest convenience to make the necessary updates.
-                    </p>
-                    <div style="text-align: center; margin: 20px 0;">
-                        <a href="{choose_option_url}" style="background-color: #e3721c; color: #ffffff; padding: 12px 20px; border-radius: 5px; text-decoration: none; font-size: 16px;">
-                            Update Now
-                        </a>
-                    </div>
-                    <p style="font-size: 12px; color: #999; text-align: center;">
-                        This is an automated email. Please do not reply to this message.
-                    </p>
-                </div>
-            </body>
-            </html>
-            """
+        # If both are logged, no reminder needed
+        flash(f"No reminder needed for {member.name}: All information is up to date.", "info")
+        return redirect(url_for('view_utilization'))
 
+    # URL to the "choose option" page with the staff member's ID
+    choose_option_url = url_for('choose_option', staff_id=member.id, _external=True)
 
-        try:
-            mail.send(msg)
-            flash(f"Reminder sent to {member.name} for missing {missing_info}.", "success")
-        except Exception as e:
-            flash(f"Failed to send reminder to {member.name}: {str(e)}", "error")
-    
+    # Styled HTML email content
+    msg = Message(
+        "Reminder: Please Update Your Weekly Numbers",
+        recipients=[member.email]
+    )
+    msg.html = f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);">
+            <h2 style="color: #e3721c; text-align: center;">Reminder to Update Your Weekly Logs</h2>
+            <p style="font-size: 16px; color: #333;">
+                Dear <strong>{member.name}</strong>,
+            </p>
+            <p style="font-size: 16px; color: #333;">
+                We noticed that you have not yet updated <strong>{missing_info}</strong> for the current week 
+                ({start_of_week.strftime('%B %d')} to {end_of_week.strftime('%B %d')}).
+            </p>
+            <p style="font-size: 16px; color: #333;">
+                Please log in to the system at your earliest convenience to make the necessary updates.
+            </p>
+            <div style="text-align: center; margin: 20px 0;">
+                <a href="{choose_option_url}" style="background-color: #e3721c; color: #ffffff; padding: 12px 20px; border-radius: 5px; text-decoration: none; font-size: 16px;">
+                    Update Now
+                </a>
+            </div>
+            <p style="font-size: 12px; color: #999; text-align: center;">
+                This is an automated email. Please do not reply to this message.
+            </p>
+        </div>
+    </body>
+    </html>
+    """
+
+    try:
+        mail.send(msg)
+        flash(f"Reminder sent to {member.name} for missing {missing_info}.", "success")
+    except Exception as e:
+        flash(f"Failed to send reminder to {member.name}: {str(e)}", "error")
+
     return redirect(url_for('view_utilization'))
 
 @app.route('/send_all_reminders', methods=['POST'])
@@ -196,12 +180,19 @@ def send_all_reminders():
     members = Staff.query.all()
     reminders_sent = 0
     for member in members:
+        # Check if the member wants to receive notifications and is not a team leader
+        if not member.receive_notifications:
+            continue
+        if member.is_team_leader:
+            continue
+
         # Check if the member has logged utilization and hours for the current week
         today = datetime.now().date()
         start_of_week = today - timedelta(days=today.weekday())
         end_of_week = start_of_week + timedelta(days=6)
 
-        last_utilization = Utilization.query.filter_by(staff_id=member.id).order_by(Utilization.week_start.desc()).first()
+        last_utilization = Utilization.query.filter_by(staff_id=member.id).order_by(
+            Utilization.week_start.desc()).first()
         last_hours_log = HoursLog.query.filter_by(staff_id=member.id).order_by(HoursLog.date.desc()).first()
 
         utilization_in_week = last_utilization and start_of_week <= last_utilization.week_start <= end_of_week
@@ -258,9 +249,37 @@ def send_all_reminders():
                 reminders_sent += 1
             except Exception as e:
                 flash(f"Failed to send reminder to {member.name}: {str(e)}", "error")
-    
-    flash(f"Reminders sent to {reminders_sent} members.", "success")
+
+    flash(f"Reminders sent to {reminders_sent} eligible members.", "success")
     return redirect(url_for('view_utilization'))
+
+@app.route('/members')
+def members():
+    today = datetime.now().date()
+    start_of_week = today - timedelta(days=today.weekday())
+    end_of_week = start_of_week + timedelta(days=6)
+
+    members = Staff.query.all()
+    member_data = []
+
+    for member in members:
+        last_utilization = Utilization.query.filter_by(staff_id=member.id).order_by(Utilization.week_start.desc()).first()
+        last_hours_log = HoursLog.query.filter_by(staff_id=member.id).order_by(HoursLog.date.desc()).first()
+
+        utilization_in_week = last_utilization and start_of_week <= last_utilization.week_start <= end_of_week
+        hours_log_in_week = last_hours_log and start_of_week <= last_hours_log.date <= end_of_week
+
+        member_data.append({
+            'id': member.id,
+            'name': member.name,
+            'email': member.email,
+            'last_utilization_week': last_utilization.week_start if last_utilization else None,
+            'last_hours_log_date': last_hours_log.date if last_hours_log else None,
+            'show_reminder': not (utilization_in_week and hours_log_in_week)
+        })
+
+    return render_template('members.html', members=member_data)
+
 
 
 @app.route('/choose_option/<int:staff_id>')
@@ -1014,6 +1033,8 @@ def generate_excel():
     return send_file(output, download_name=file_name, as_attachment=True)
 
 
+
+
 @app.route('/thank_you/<int:staff_id>')
 def thank_you(staff_id):
     staff = Staff.query.get_or_404(staff_id)
@@ -1435,6 +1456,93 @@ def view_logs(staff_id):
 
     return render_template('staff_logs.html', staff=staff, grouped_logs=grouped_logs, Proposal=Proposal,
                            Engagement=Engagement, NonBillable=NonBillable, logs=logs)
+
+
+from flask import render_template
+
+from datetime import timedelta
+from calendar import monthrange
+
+
+@app.route('/preview/<int:user_id>')
+def preview_user(user_id):
+    staff_member = Staff.query.get_or_404(user_id)
+
+    # Get all hour logs and leave records for the staff member
+    hours_logs = HoursLog.query.filter_by(staff_id=user_id).order_by(HoursLog.date).all()
+    leave_records = {record.date for record in LeaveRecord.query.filter_by(staff_id=user_id).all()}
+
+    # Organize logs by week (Monday to Friday)
+    logs_by_week = {}
+    month_set = set()  # To collect months with data
+
+    # Fetch names for engagements, proposals, and non-billables
+    engagements = {engagement.id: engagement.name for engagement in Engagement.query.all()}
+    proposals = {proposal.id: proposal.name for proposal in Proposal.query.all()}
+    non_billables = {non_billable.id: non_billable.name for non_billable in NonBillable.query.all()}
+
+    daily_totals = {}  # To store daily totals
+    weekly_totals = {}  # To store weekly totals
+
+    for log in hours_logs:
+        # Week Start and End (Monday to Friday)
+        week_start = log.date - timedelta(days=log.date.weekday())  # Monday of the week
+        week_end = week_start + timedelta(days=4)  # Friday of the week
+
+        if week_start not in logs_by_week:
+            logs_by_week[week_start] = {
+                'end': week_end,
+                'logs': {},
+                'month': log.date.strftime('%B %Y')
+            }
+        if log.date not in logs_by_week[week_start]['logs']:
+            logs_by_week[week_start]['logs'][log.date] = []
+
+        # Determine item name based on category
+        item_name = ""
+        if log.category == 'engagement':
+            item_name = engagements.get(log.item_id, 'Unknown Engagement')
+        elif log.category == 'proposal':
+            item_name = proposals.get(log.item_id, 'Unknown Proposal')
+        elif log.category == 'non_billable':
+            item_name = non_billables.get(log.item_id, 'Unknown Non-Billable')
+        else:
+            item_name = 'Unknown Category'
+
+        logs_by_week[week_start]['logs'][log.date].append({
+            'category': log.category,
+            'hours': log.hours,
+            'item_name': item_name
+        })
+
+        # Calculate daily totals
+        if log.date not in daily_totals:
+            daily_totals[log.date] = 0
+        daily_totals[log.date] += log.hours
+
+        # Calculate weekly totals
+        if week_start not in weekly_totals:
+            weekly_totals[week_start] = 0
+        weekly_totals[week_start] += log.hours
+
+        month_set.add(log.date.strftime('%B %Y'))
+
+    # Mark days with leave
+    for week_start, week_data in logs_by_week.items():
+        for date in week_data['logs']:
+            if date in leave_records:
+                for log in week_data['logs'][date]:
+                    log['item_name'] = 'User was on leave'
+
+    # Paginate the results
+    page = request.args.get('page', 1, type=int)
+    per_page = 5
+    paginated_weeks = list(logs_by_week.items())[(page - 1) * per_page: page * per_page]
+    total_pages = (len(logs_by_week) + per_page - 1) // per_page
+
+    return render_template('preview.html', staff_member=staff_member, logs_by_week=paginated_weeks,
+                           month_list=sorted(month_set), current_page=page, total_pages=total_pages,
+                           daily_totals=daily_totals, weekly_totals=weekly_totals)
 
 
 if __name__ == '__main__':

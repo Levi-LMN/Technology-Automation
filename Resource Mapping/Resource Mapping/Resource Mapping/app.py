@@ -1383,6 +1383,9 @@ def staff_detail(staff_id):
                            leave_stats=leave_stats)
 
 
+from datetime import timedelta
+
+
 @app.route('/view_logs/<int:staff_id>', methods=['GET', 'POST'])
 def view_logs(staff_id):
     staff = Staff.query.get_or_404(staff_id)
@@ -1391,7 +1394,21 @@ def view_logs(staff_id):
     page = request.args.get('page', 1, type=int)
     per_page = 50  # Number of logs to display per page
 
-    logs = HoursLog.query.filter_by(staff_id=staff_id).order_by(HoursLog.date.desc()).paginate(page=page, per_page=per_page)
+    logs = HoursLog.query.filter_by(staff_id=staff_id).order_by(HoursLog.date.desc()).paginate(page=page,
+                                                                                               per_page=per_page)
+
+    # Group logs by week (Monday to Friday)
+    grouped_logs = {}
+    for log in logs.items:
+        # Get the Monday of the week for each log
+        start_of_week = log.date - timedelta(days=log.date.weekday())  # Monday of the week
+        end_of_week = start_of_week + timedelta(days=4)  # Friday of the week
+
+        week_label = f"{start_of_week.strftime('%A %d')} - {end_of_week.strftime('%A %d %B %Y')}"
+
+        if week_label not in grouped_logs:
+            grouped_logs[week_label] = []
+        grouped_logs[week_label].append(log)
 
     if request.method == 'POST':
         if 'delete' in request.form:
@@ -1405,7 +1422,9 @@ def view_logs(staff_id):
                 flash('Invalid log entry.', 'error')
         return redirect(url_for('view_logs', staff_id=staff_id))
 
-    return render_template('staff_logs.html', staff=staff, logs=logs, Proposal=Proposal, Engagement=Engagement, NonBillable=NonBillable)
+    return render_template('staff_logs.html', staff=staff, grouped_logs=grouped_logs, Proposal=Proposal,
+                           Engagement=Engagement, NonBillable=NonBillable, logs=logs)
+
 
 if __name__ == '__main__':
     with app.app_context():

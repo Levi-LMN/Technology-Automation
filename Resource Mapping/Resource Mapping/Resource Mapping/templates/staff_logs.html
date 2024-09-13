@@ -3,41 +3,44 @@
 {% block content %}
 <h1>{{ staff.name }} - Hours Logs</h1>
 
-<table class="table">
-    <thead>
-        <tr>
-            <th>Date</th>
-            <th>Category</th>
-            <th>Item</th>
-            <th>Hours</th>
-            <th>Actions</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for log in logs.items %}
-        <tr>
-            <td>{{ log.date }}</td>
-            <td>{{ log.category.capitalize() }}</td>
-            <td>
-                {% if log.category == 'proposal' %}
-                    {{ Proposal.query.get(log.item_id).name }}
-                {% elif log.category == 'engagement' %}
-                    {{ Engagement.query.get(log.item_id).name }}
-                {% elif log.category == 'non_billable' %}
-                    {{ NonBillable.query.get(log.item_id).name }}
-                {% endif %}
-            </td>
-            <td>{{ log.hours }}</td>
-            <td>
-                <form method="post" class="d-inline">
-                    <input type="hidden" name="delete" value="{{ log.id }}">
-                    <button type="submit" class="btn btn-danger btn-sm">Delete</button>
-                </form>
-            </td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+{% for week, week_logs in grouped_logs.items() %}
+    <h3>Week: {{ week }}</h3>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Category</th>
+                <th>Item</th>
+                <th>Hours</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in week_logs %}
+            <tr>
+                <td>{{ log.date }}</td>
+                <td>{{ log.category.capitalize() }}</td>
+                <td>
+                    {% if log.category == 'proposal' %}
+                        {{ Proposal.query.get(log.item_id).name }}
+                    {% elif log.category == 'engagement' %}
+                        {{ Engagement.query.get(log.item_id).name }}
+                    {% elif log.category == 'non_billable' %}
+                        {{ NonBillable.query.get(log.item_id).name }}
+                    {% endif %}
+                </td>
+                <td>{{ log.hours }}</td>
+                <td>
+                    <form method="post" class="d-inline">
+                        <input type="hidden" name="delete" value="{{ log.id }}">
+                        <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endfor %}
 
 {% if logs.pages > 1 %}
 <nav aria-label="Page navigation">

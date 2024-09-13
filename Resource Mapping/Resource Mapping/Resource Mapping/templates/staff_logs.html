@@ -5,6 +5,13 @@
 
 {% for week, week_logs in grouped_logs.items() %}
     <h3>Week: {{ week }}</h3>
+
+    <!-- Form for deleting all logs for the week -->
+    <form method="post" style="display:inline;">
+        <input type="hidden" name="delete_week" value="{{ week }}">
+        <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure you want to delete all logs for this week?')">Delete Week</button>
+    </form>
+
     <table class="table">
         <thead>
             <tr>

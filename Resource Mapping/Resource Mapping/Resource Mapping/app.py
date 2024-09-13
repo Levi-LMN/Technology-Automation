@@ -1410,6 +1410,7 @@ def view_logs(staff_id):
             grouped_logs[week_label] = []
         grouped_logs[week_label].append(log)
 
+    # Handle post requests
     if request.method == 'POST':
         if 'delete' in request.form:
             log_id = request.form['delete']
@@ -1420,6 +1421,16 @@ def view_logs(staff_id):
                 flash('Log entry deleted successfully.', 'success')
             else:
                 flash('Invalid log entry.', 'error')
+
+        # Delete all logs for a specific week
+        if 'delete_week' in request.form:
+            week_label = request.form['delete_week']
+            logs_to_delete = grouped_logs.get(week_label, [])
+            for log in logs_to_delete:
+                db.session.delete(log)
+            db.session.commit()
+            flash(f'All logs for {week_label} deleted successfully.', 'success')
+
         return redirect(url_for('view_logs', staff_id=staff_id))
 
     return render_template('staff_logs.html', staff=staff, grouped_logs=grouped_logs, Proposal=Proposal,

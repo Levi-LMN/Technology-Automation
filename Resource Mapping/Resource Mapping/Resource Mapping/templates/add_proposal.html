@@ -9,6 +9,14 @@
             <input type="text" id="name" name="name" class="form-control" required style="border-radius: 5px; box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);">
         </div>
         <div class="form-group" style="margin-top: 20px;">
+            <label for="description" style="font-weight: bold;">Description:</label>
+            <textarea id="description" name="description" class="form-control" rows="3" style="border-radius: 5px; box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);"></textarea>
+        </div>
+        <div class="form-group" style="margin-top: 20px;">
+            <label for="due_date" style="font-weight: bold;">Due Date:</label>
+            <input type="date" id="due_date" name="due_date" class="form-control" style="border-radius: 5px; box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);">
+        </div>
+        <div class="form-group" style="margin-top: 20px;">
             <label for="team_leader_id" style="font-weight: bold;">Team Leader:</label>
             <select id="team_leader_id" name="team_leader_id" class="form-control" required style="border-radius: 5px; box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);">
                 {% for staff in staff_members %}

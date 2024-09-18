@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, send_file, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_mail import Mail, Message
+from itertools import cycle
 from openpyxl import Workbook
 from openpyxl.styles import PatternFill, Alignment, Font, Border, Side
 from openpyxl.utils import get_column_letter
@@ -9,7 +10,21 @@ from datetime import datetime, timedelta
 import calendar
 import holidays
 from sqlalchemy import Boolean  # Import Boolean type if not already imported
+from flask_mail import Message
+from flask import Flask, render_template, request, redirect, url_for, flash, send_file, jsonify
+from flask_sqlalchemy import SQLAlchemy
+from openpyxl import Workbook
+from openpyxl.styles import PatternFill, Alignment, Font, Border, Side
+from openpyxl.utils import get_column_letter
+import io
+from datetime import datetime, timedelta
+import calendar
+import holidays
+from flask import url_for, flash, redirect
+from datetime import datetime, timedelta
 
+
+# ... (existing code)
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///data.db'
@@ -31,25 +46,29 @@ class Staff(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
-    leave_days_remaining = db.Column(db.Float, default=0.0)  # Leave days remaining in hours
-    is_team_leader = db.Column(Boolean, default=False)  # New field to indicate if the staff is a team leader
-    receive_notifications = db.Column(Boolean, default=True)  # New field for notification preferences
+    leave_days_remaining = db.Column(db.Float, default=0.0)
+    is_team_leader = db.Column(Boolean, default=False)
+    receive_notifications = db.Column(Boolean, default=True)
     engagements = db.relationship('Engagement', backref='team_leader', lazy=True)
     proposals = db.relationship('Proposal', backref='team_leader', lazy=True)
     hours_logs = db.relationship('HoursLog', backref='staff_member', lazy=True)
     leave_records = db.relationship('LeaveRecord', backref='staff', lazy=True)
     utilizations = db.relationship('Utilization', backref='staff', lazy=True)
 
-
 class Engagement(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text)  # New field
+    start_date = db.Column(db.Date)  # New field
+    end_date = db.Column(db.Date)  # New field
     team_leader_id = db.Column(db.Integer, db.ForeignKey('staff.id'))
     status = db.Column(db.String(10), nullable=False)
 
 class Proposal(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text)  # New field
+    due_date = db.Column(db.Date)  # New field
     team_leader_id = db.Column(db.Integer, db.ForeignKey('staff.id'))
     status = db.Column(db.String(10), nullable=False)
 
@@ -63,35 +82,210 @@ class HoursLog(db.Model):
     category = db.Column(db.String(20), nullable=False)
     item_id = db.Column(db.Integer, nullable=False)
     hours = db.Column(db.Float, nullable=False)
-    date = db.Column(db.Date, nullable=False)  # Changed from week_start to date
+    date = db.Column(db.Date, nullable=False)
 
 class LeaveRecord(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     staff_id = db.Column(db.Integer, db.ForeignKey('staff.id'))
     date = db.Column(db.Date, nullable=False)
-
     __table_args__ = (db.UniqueConstraint('staff_id', 'date', name='_staff_date_uc'),)
-
-    def __repr__(self):
-        return f"LeaveRecord('{self.date}')"
 
 class Utilization(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     staff_id = db.Column(db.Integer, db.ForeignKey('staff.id'))
-    week_start = db.Column(db.Date, nullable=False)  # Start of the week
+    week_start = db.Column(db.Date, nullable=False)
     client_utilization_year_to_date = db.Column(db.Float, default=0.0)
     client_utilization_month_to_date = db.Column(db.Float, default=0.0)
     resource_utilization_year_to_date = db.Column(db.Float, default=0.0)
     resource_utilization_month_to_date = db.Column(db.Float, default=0.0)
 
-    def __repr__(self):
-        return (f"Utilization(staff_id={self.staff_id}, week_start={self.week_start}, "
-                f"client_utilization_year_to_date={self.client_utilization_year_to_date}, "
-                f"client_utilization_month_to_date={self.client_utilization_month_to_date}, "
-                f"resource_utilization_year_to_date={self.resource_utilization_year_to_date}, "
-                f"resource_utilization_month_to_date={self.resource_utilization_month_to_date})")
 
 
+@app.route('/add_engagement', methods=['GET', 'POST'])
+def add_engagement():
+    if request.method == 'POST':
+        name = request.form.get('name')
+        description = request.form.get('description')
+        start_date = datetime.strptime(request.form.get('start_date'), '%Y-%m-%d').date()
+        end_date = datetime.strptime(request.form.get('end_date'), '%Y-%m-%d').date()
+        team_leader_id = request.form.get('team_leader_id')
+        status = request.form.get('status')
+
+        # Create new engagement
+        engagement = Engagement(
+            name=name,
+            description=description,
+            start_date=start_date,
+            end_date=end_date,
+            team_leader_id=team_leader_id,
+            status=status
+        )
+        db.session.add(engagement)
+
+        # Update is_team_leader for the selected staff member
+        if team_leader_id:
+            staff_member = Staff.query.get(team_leader_id)
+            if staff_member:
+                staff_member.is_team_leader = True
+                db.session.add(staff_member)
+
+        db.session.commit()
+        flash('Engagement added successfully.', 'success')
+        return redirect(url_for('index'))
+
+    staff_members = Staff.query.all()
+    return render_template('add_engagement.html', staff_members=staff_members)
+
+@app.route('/add_proposal', methods=['GET', 'POST'])
+def add_proposal():
+    if request.method == 'POST':
+        name = request.form.get('name')
+        description = request.form.get('description')
+        due_date = datetime.strptime(request.form.get('due_date'), '%Y-%m-%d').date()
+        team_leader_id = request.form.get('team_leader_id')
+        status = request.form.get('status')
+
+        # Create new proposal
+        proposal = Proposal(
+            name=name,
+            description=description,
+            due_date=due_date,
+            team_leader_id=team_leader_id,
+            status=status
+        )
+        db.session.add(proposal)
+
+        # Update is_team_leader for the selected staff member
+        if team_leader_id:
+            staff_member = Staff.query.get(team_leader_id)
+            if staff_member:
+                staff_member.is_team_leader = True
+                db.session.add(staff_member)
+
+        db.session.commit()
+        flash('Proposal added successfully.', 'success')
+        return redirect(url_for('index'))
+
+    staff_members = Staff.query.all()
+    return render_template('add_proposal.html', staff_members=staff_members)
+
+@app.route('/edit_data', methods=['GET', 'POST'])
+def edit_data():
+    if request.method == 'POST':
+        data_type = request.form.get('type')
+        item_id = request.form.get('id')
+
+        if 'delete' in request.form:
+            delete_value = request.form.get('delete')
+            delete_type, delete_id = delete_value.split('-')
+
+            if delete_type == 'staff':
+                item = Staff.query.get(delete_id)
+            elif delete_type == 'engagement':
+                item = Engagement.query.get(delete_id)
+            elif delete_type == 'proposal':
+                item = Proposal.query.get(delete_id)
+            elif delete_type == 'non_billable':
+                item = NonBillable.query.get(delete_id)
+
+            if item:
+                db.session.delete(item)
+                db.session.commit()
+                flash(f'{delete_type.capitalize()} deleted successfully.', 'success')
+            else:
+                flash(f'{delete_type.capitalize()} not found.', 'error')
+
+        else:
+            if data_type == 'staff':
+                staff = Staff.query.get(item_id)
+                if staff:
+                    staff.name = request.form.get('name')
+                    staff.email = request.form.get('email')  # Update to use email
+                    db.session.commit()
+                    flash('Staff member updated successfully.', 'success')
+
+            elif data_type == 'engagement':
+                engagement = Engagement.query.get(item_id)
+                if engagement:
+                    old_team_leader_id = engagement.team_leader_id
+                    engagement.name = request.form.get('name')
+                    engagement.description = request.form.get('description')
+                    engagement.start_date = datetime.strptime(request.form.get('start_date'), '%Y-%m-%d').date()
+                    engagement.end_date = datetime.strptime(request.form.get('end_date'), '%Y-%m-%d').date()
+                    engagement.team_leader_id = request.form.get('team_leader_id')
+                    engagement.status = request.form.get('status')
+
+                    # Check if old team leader is still leading any engagement or proposal
+                    if old_team_leader_id != engagement.team_leader_id:
+                        old_team_leader = Staff.query.get(old_team_leader_id)
+                        new_team_leader = Staff.query.get(engagement.team_leader_id)
+
+                        # Check if the old team leader is leading any other engagements or proposals
+                        if not Engagement.query.filter(Engagement.team_leader_id == old_team_leader_id).filter(
+                                Engagement.id != engagement.id).count() and \
+                                not Proposal.query.filter(Proposal.team_leader_id == old_team_leader_id).count():
+                            if old_team_leader:
+                                old_team_leader.is_team_leader = False
+                                db.session.add(old_team_leader)
+
+                        # Set is_team_leader for the new team leader
+                        if new_team_leader:
+                            new_team_leader.is_team_leader = True
+                            db.session.add(new_team_leader)
+
+                    db.session.commit()
+                    flash('Engagement updated successfully.', 'success')
+
+            elif data_type == 'proposal':
+                proposal = Proposal.query.get(item_id)
+                if proposal:
+                    old_team_leader_id = proposal.team_leader_id
+                    proposal.name = request.form.get('name')
+                    proposal.description = request.form.get('description')
+                    proposal.due_date = datetime.strptime(request.form.get('due_date'), '%Y-%m-%d').date()
+                    proposal.team_leader_id = request.form.get('team_leader_id')
+                    proposal.status = request.form.get('status')
+
+                    # Check if old team leader is still leading any engagement or proposal
+                    if old_team_leader_id != proposal.team_leader_id:
+                        old_team_leader = Staff.query.get(old_team_leader_id)
+                        new_team_leader = Staff.query.get(proposal.team_leader_id)
+
+                        # Check if the old team leader is leading any other engagements or proposals
+                        if not Engagement.query.filter(Engagement.team_leader_id == old_team_leader_id).count() and \
+                                not Proposal.query.filter(Proposal.team_leader_id == old_team_leader_id).filter(
+                                    Proposal.id != proposal.id).count():
+                            if old_team_leader:
+                                old_team_leader.is_team_leader = False
+                                db.session.add(old_team_leader)
+
+                        # Set is_team_leader for the new team leader
+                        if new_team_leader:
+                            new_team_leader.is_team_leader = True
+                            db.session.add(new_team_leader)
+
+                    db.session.commit()
+                    flash('Proposal updated successfully.', 'success')
+
+            elif data_type == 'non_billable':
+                non_billable = NonBillable.query.get(item_id)
+                if non_billable:
+                    non_billable.name = request.form.get('name')
+                    db.session.commit()
+                    flash('Non-Billable updated successfully.', 'success')
+
+        return redirect(url_for('edit_data'))
+
+    staff_members = Staff.query.all()
+    engagements = Engagement.query.all()
+    proposals = Proposal.query.all()
+    non_billables = NonBillable.query.all()
+
+    return render_template('edit_data.html',
+                           staff_members=staff_members,
+                           engagements=engagements,
+                           proposals=proposals,
+                           non_billables=non_billables)
 
 
 @app.route('/send_reminder/<int:member_id>', methods=['POST'])
@@ -502,9 +696,6 @@ def members():
 
     return render_template('members.html', members=member_data)
 
-from datetime import datetime, timedelta
-from flask import flash, redirect, url_for
-from flask_mail import Message
 
 @app.route('/send_monthly_forecast_email', methods=['POST'])
 def send_monthly_forecast_email():
@@ -575,9 +766,6 @@ def send_monthly_forecast_email():
     flash(f"Monthly forecast emails sent to {emails_sent} eligible members.", "success")
     return redirect(url_for('view_utilization'))
 
-from flask import url_for, flash, redirect
-from flask_mail import Message
-from datetime import datetime, timedelta
 
 @app.route('/send_individual_email/<int:staff_id>', methods=['POST'])
 def send_individual_email(staff_id):
@@ -892,53 +1080,6 @@ def add_staff():
     return render_template('add_staff.html')
 
 
-@app.route('/add_engagement', methods=['GET', 'POST'])
-def add_engagement():
-    if request.method == 'POST':
-        name = request.form.get('name')
-        team_leader_id = request.form.get('team_leader_id')
-        status = request.form.get('status')
-        
-        # Create new engagement
-        engagement = Engagement(name=name, team_leader_id=team_leader_id, status=status)
-        db.session.add(engagement)
-        
-        # Update is_team_leader for the selected staff member
-        if team_leader_id:
-            staff_member = Staff.query.get(team_leader_id)
-            if staff_member:
-                staff_member.is_team_leader = True  # Set to True if selected as team leader
-                db.session.add(staff_member)
-        
-        db.session.commit()
-        return redirect(url_for('index'))
-    
-    staff_members = Staff.query.all()
-    return render_template('add_engagement.html', staff_members=staff_members)
-
-@app.route('/add_proposal', methods=['GET', 'POST'])
-def add_proposal():
-    if request.method == 'POST':
-        name = request.form.get('name')
-        team_leader_id = request.form.get('team_leader_id')
-        status = request.form.get('status')
-        
-        # Create new proposal
-        proposal = Proposal(name=name, team_leader_id=team_leader_id, status=status)
-        db.session.add(proposal)
-        
-        # Update is_team_leader for the selected staff member
-        if team_leader_id:
-            staff_member = Staff.query.get(team_leader_id)
-            if staff_member:
-                staff_member.is_team_leader = True  # Set to True if selected as team leader
-                db.session.add(staff_member)
-        
-        db.session.commit()
-        return redirect(url_for('index'))
-    
-    staff_members = Staff.query.all()
-    return render_template('add_proposal.html', staff_members=staff_members)
 
 
 @app.route('/add_non_billable', methods=['GET', 'POST'])
@@ -965,7 +1106,8 @@ def generate_excel():
     leave_fill = PatternFill(start_color="D3D3D3", end_color="D3D3D3", fill_type="solid")
 
     header_font = Font(bold=True, size=12)
-    border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+    border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'),
+                    bottom=Side(style='thin'))
 
     def style_sheet(ws, color_fill):
         for row in ws.iter_rows(min_row=1, max_row=ws.max_row, min_col=1, max_col=ws.max_column):
@@ -992,16 +1134,31 @@ def generate_excel():
     # Proposals sheet
     ws_proposals = wb.active
     ws_proposals.title = "Proposals"
-    ws_proposals.append(["ID", "Name", "Team Leader", "Status"])
+    ws_proposals.append(["ID", "Name", "Team Leader", "Status", "Description", "Due Date"])
     for proposal in Proposal.query.all():
-        ws_proposals.append([proposal.id, proposal.name, proposal.team_leader.name if proposal.team_leader else "N/A", proposal.status])
+        ws_proposals.append([
+            proposal.id,
+            proposal.name,
+            proposal.team_leader.name if proposal.team_leader else "N/A",
+            proposal.status,
+            proposal.description,
+            proposal.due_date.strftime('%Y-%m-%d') if proposal.due_date else "N/A"
+        ])
     style_sheet(ws_proposals, proposal_color)
 
     # Engagements sheet
     ws_engagements = wb.create_sheet("Engagements")
-    ws_engagements.append(["ID", "Name", "Team Leader", "Status"])
+    ws_engagements.append(["ID", "Name", "Team Leader", "Status", "Description", "Start Date", "End Date"])
     for engagement in Engagement.query.all():
-        ws_engagements.append([engagement.id, engagement.name, engagement.team_leader.name if engagement.team_leader else "N/A", engagement.status])
+        ws_engagements.append([
+            engagement.id,
+            engagement.name,
+            engagement.team_leader.name if engagement.team_leader else "N/A",
+            engagement.status,
+            engagement.description,
+            engagement.start_date.strftime('%Y-%m-%d') if engagement.start_date else "N/A",
+            engagement.end_date.strftime('%Y-%m-%d') if engagement.end_date else "N/A"
+        ])
     style_sheet(ws_engagements, engagement_color)
 
     # Non-Billables sheet
@@ -1108,167 +1265,252 @@ def generate_excel():
         adjusted_width = min(max_length + 2, 30)
         ws_staff.column_dimensions[column_letter].width = adjusted_width
 
-    # Generate monthly sheets
-    ke_holidays = holidays.KE()
+        # Utilizations sheet
+        ws_utilizations = wb.create_sheet("Utilizations")
 
-    earliest_date = db.session.query(db.func.min(HoursLog.date)).scalar()
-    if earliest_date is None:
-        earliest_date = datetime.now().date().replace(day=1)
-
-    current_year = datetime.now().year
-    if datetime.now().month > 6:
-        end_financial_year = datetime(current_year + 1, 6, 30).date()
-    else:
-        end_financial_year = datetime(current_year, 6, 30).date()
-
-    # ... (previous code remains the same)
-
-    current_date = earliest_date.replace(day=1)
-    while current_date <= end_financial_year:
-        month_name = current_date.strftime('%B %Y')
-        ws_month = wb.create_sheet(month_name)
-
+        # Color definitions
         header_fill = PatternFill(start_color="FFD3D3D3", end_color="FFD3D3D3", fill_type="solid")
         subheader_fill = PatternFill(start_color="FFF0F0F0", end_color="FFF0F0F0", fill_type="solid")
-        holiday_fill = PatternFill(start_color="FFFF0000", end_color="FFFF0000", fill_type="solid")
-        border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
-        header_font = Font(bold=True, size=12)
-        subheader_font = Font(bold=True, size=11)
+        data_fill_1 = PatternFill(start_color="FFDDEEFF", end_color="FFDDEEFF", fill_type="solid")
+        data_fill_2 = PatternFill(start_color="FFFFEECC", end_color="FFFFEECC", fill_type="solid")
 
-        columns = ["Staff Name"]
-        categories = ["Proposals", "Engagements", "Non-Billables", "Total"]
+        headers = ["Staff Name", "Week Start", "Client Utilization YTD", "Client Utilization MTD",
+                   "Resource Utilization YTD", "Resource Utilization MTD"]
 
-        working_days = []
-        month_end = current_date.replace(day=calendar.monthrange(current_date.year, current_date.month)[1])
-        current = max(current_date, earliest_date)
-        while current <= month_end:
-            if current.weekday() < 5:
-                working_days.append(current)
-            current += timedelta(days=1)
+        # Get all unique months from Utilization
+        unique_months = db.session.query(
+            db.func.strftime('%Y-%m', Utilization.week_start).label('month')
+        ).distinct().order_by('month').all()
 
-        for day in working_days:
-            date_header = f"{day.strftime('%A %d %B %Y')}"
-            columns.extend([date_header] + ['' for _ in range(len(categories) - 1)])
-        ws_month.append(columns)
+        current_row = 1
 
-        sub_headers = [""]
-        for _ in range(len(working_days)):
-            sub_headers.extend(categories)
-        ws_month.append(sub_headers)
+        for month_tuple in unique_months:
+            month = datetime.strptime(month_tuple[0], '%Y-%m')
+            month_start = month.replace(day=1)
+            month_end = (month_start + timedelta(days=32)).replace(day=1) - timedelta(days=1)
 
-        # Style and format headers
-        for row in ws_month[1:3]:
-            for cell in row:
-                cell.border = border
+            # Add month header
+            month_cell = ws_utilizations.cell(row=current_row, column=1, value=f"Month: {month.strftime('%B %Y')}")
+            month_cell.font = Font(bold=True, size=14)
+            ws_utilizations.merge_cells(start_row=current_row, start_column=1, end_row=current_row,
+                                        end_column=len(headers))
+            current_row += 1
+
+            # Add column headers
+            for col, header in enumerate(headers, start=1):
+                cell = ws_utilizations.cell(row=current_row, column=col, value=header)
+                cell.fill = header_fill
+                cell.font = Font(bold=True)
                 cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+            current_row += 1
 
-        for col in range(1, len(columns) + 1):
-            header_cell = ws_month.cell(row=1, column=col)
-            subheader_cell = ws_month.cell(row=2, column=col)
+            utilizations = Utilization.query.filter(
+                Utilization.week_start >= month_start,
+                Utilization.week_start <= month_end
+            ).order_by(Utilization.staff_id, Utilization.week_start).all()
 
-            header_cell.fill = header_fill
-            header_cell.font = header_font
-            subheader_cell.fill = subheader_fill
-            subheader_cell.font = subheader_font
+            row_color = cycle([data_fill_1, data_fill_2])
 
-            if col > 1 and (col - 2) % 4 == 0:
-                ws_month.merge_cells(start_row=1, start_column=col, end_row=1, end_column=col + 3)
+            for utilization in utilizations:
+                row_data = [
+                    utilization.staff.name,
+                    utilization.week_start.strftime('%Y-%m-%d'),
+                    f"{utilization.client_utilization_year_to_date:.2f}%",
+                    f"{utilization.client_utilization_month_to_date:.2f}%",
+                    f"{utilization.resource_utilization_year_to_date:.2f}%",
+                    f"{utilization.resource_utilization_month_to_date:.2f}%"
+                ]
 
-            if subheader_cell.value == "Proposals":
-                subheader_cell.fill = proposal_color
-            elif subheader_cell.value == "Engagements":
-                subheader_cell.fill = engagement_color
-            elif subheader_cell.value == "Non-Billables":
-                subheader_cell.fill = non_billable_color
-            elif subheader_cell.value == "Total":
-                subheader_cell.fill = total_color
+                current_fill = next(row_color)
+                for col, value in enumerate(row_data, start=1):
+                    cell = ws_utilizations.cell(row=current_row, column=col, value=value)
+                    cell.border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'),
+                                         bottom=Side(style='thin'))
+                    cell.alignment = Alignment(horizontal='center', vertical='center')
+                    cell.fill = current_fill
 
-            if col > 1 and (col - 2) % 4 == 0:
-                date_str = header_cell.value.split(' ', 1)[1]
-                date = datetime.strptime(date_str, '%d %B %Y').date()
-                if date in ke_holidays:
-                    header_cell.fill = holiday_fill
-                    header_cell.font = Font(bold=True, color="FFFFFFFF")
-                    ws_month.cell(row=1, column=col, value=f"{header_cell.value} (Holiday: {ke_holidays.get(date)})")
+                current_row += 1
 
-        ws_month.row_dimensions[1].height = 30
-        ws_month.row_dimensions[2].height = 25
+            current_row += 2  # Add space between months
 
-        # Start adding data from row 3
-        for idx, staff in enumerate(Staff.query.all(), start=3):
-            row_data = [staff.name]
-
-            for day in working_days:
-                leave_record = LeaveRecord.query.filter_by(staff_id=staff.id, date=day).first()
-                if leave_record:
-                    row_data.extend(["ON LEAVE", "", "", ""])
-                else:
-                    logs = HoursLog.query.filter_by(staff_id=staff.id, date=day).all()
-                    daily_total = 0
-                    for category in ['proposal', 'engagement', 'non_billable']:
-                        category_logs = [log for log in logs if log.category == category]
-                        category_hours = sum([log.hours for log in category_logs])
-                        if category_hours > 0:
-                            items = []
-                            for log in category_logs:
-                                if category == 'proposal':
-                                    item = Proposal.query.get(log.item_id)
-                                elif category == 'engagement':
-                                    item = Engagement.query.get(log.item_id)
-                                else:
-                                    item = NonBillable.query.get(log.item_id)
-                                items.append(f"{item.name} ({log.hours:.2f}h)")
-                            row_data.append("\n".join(items))
-                            daily_total += category_hours
-                        else:
-                            row_data.append("")
-                    row_data.append(f"{daily_total:.2f}" if daily_total > 0 else "")
-
-            # Add the row data to the sheet
-            for col, value in enumerate(row_data, start=1):
-                cell = ws_month.cell(row=idx, column=col, value=value)
-                if value == "ON LEAVE":
-                    for i in range(4):
-                        leave_cell = ws_month.cell(row=idx, column=col + i)
-                        leave_cell.fill = leave_fill
-                        if i == 0:
-                            leave_cell.alignment = Alignment(horizontal='center', vertical='center')
-
-        # Apply borders and alignment to all cells
-        for row in ws_month[3:ws_month.max_row + 1]:
-            for cell in row:
-                cell.border = border
-                cell.alignment = Alignment(horizontal='left', vertical='center', wrap_text=True)
-
-        # Adjust column widths
-        for i, column in enumerate(ws_month.columns, 1):
+            # Adjust column widths for Utilizations sheet
+        for col in range(1, ws_utilizations.max_column + 1):
             max_length = 0
-            column = [cell for cell in column]
-            for cell in column:
+            column_letter = get_column_letter(col)
+            for cell in ws_utilizations[column_letter]:
                 try:
                     if len(str(cell.value)) > max_length:
                         max_length = len(cell.value)
                 except:
                     pass
-            adjusted_width = min(max_length + 2, 30)
-            ws_month.column_dimensions[get_column_letter(i)].width = adjusted_width
+            adjusted_width = max(max_length + 2, 15)  # Minimum width of 15
+            ws_utilizations.column_dimensions[column_letter].width = adjusted_width
 
-        ws_month.freeze_panes = "B3"
+            # Set row height
+        for row in ws_utilizations.iter_rows():
+            ws_utilizations.row_dimensions[row[0].row].height = 20
 
-        current_date = (current_date + timedelta(days=32)).replace(day=1)
+            # Freeze panes
+        ws_utilizations.freeze_panes = 'A3'
 
+        # Generate monthly sheets
+        ke_holidays = holidays.KE()
 
+        earliest_date = db.session.query(db.func.min(HoursLog.date)).scalar()
+        if earliest_date is None:
+            earliest_date = datetime.now().date().replace(day=1)
 
-     # Generate the file name based on the content and current date
-    today = datetime.now().strftime('%Y-%m-%d')
-    file_name = f"Resource Mapping and Leave Days - {today}.xlsx"
+        current_year = datetime.now().year
+        if datetime.now().month > 6:
+            end_financial_year = datetime(current_year + 1, 6, 30).date()
+        else:
+            end_financial_year = datetime(current_year, 6, 30).date()
 
-    output = io.BytesIO()
-    wb.save(output)
-    output.seek(0)
+        current_date = earliest_date.replace(day=1)
+        while current_date <= end_financial_year:
+            month_name = current_date.strftime('%B %Y')
+            ws_month = wb.create_sheet(month_name)
 
-    return send_file(output, download_name=file_name, as_attachment=True)
+            header_fill = PatternFill(start_color="FFD3D3D3", end_color="FFD3D3D3", fill_type="solid")
+            subheader_fill = PatternFill(start_color="FFF0F0F0", end_color="FFF0F0F0", fill_type="solid")
+            holiday_fill = PatternFill(start_color="FFFF0000", end_color="FFFF0000", fill_type="solid")
+            border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'),
+                            bottom=Side(style='thin'))
+            header_font = Font(bold=True, size=12)
+            subheader_font = Font(bold=True, size=11)
 
+            columns = ["Staff Name"]
+            categories = ["Proposals", "Engagements", "Non-Billables", "Total"]
+
+            working_days = []
+            month_end = current_date.replace(day=calendar.monthrange(current_date.year, current_date.month)[1])
+            current = max(current_date, earliest_date)
+            while current <= month_end:
+                if current.weekday() < 5:
+                    working_days.append(current)
+                current += timedelta(days=1)
+
+            for day in working_days:
+                date_header = f"{day.strftime('%A %d %B %Y')}"
+                columns.extend([date_header] + ['' for _ in range(len(categories) - 1)])
+            ws_month.append(columns)
+
+            sub_headers = [""]
+            for _ in range(len(working_days)):
+                sub_headers.extend(categories)
+            ws_month.append(sub_headers)
+
+            # Style and format headers
+            for row in ws_month[1:3]:
+                for cell in row:
+                    cell.border = border
+                    cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+
+            for col in range(1, len(columns) + 1):
+                header_cell = ws_month.cell(row=1, column=col)
+                subheader_cell = ws_month.cell(row=2, column=col)
+
+                header_cell.fill = header_fill
+                header_cell.font = header_font
+                subheader_cell.fill = subheader_fill
+                subheader_cell.font = subheader_font
+
+                if col > 1 and (col - 2) % 4 == 0:
+                    ws_month.merge_cells(start_row=1, start_column=col, end_row=1, end_column=col + 3)
+
+                if subheader_cell.value == "Proposals":
+                    subheader_cell.fill = proposal_color
+                elif subheader_cell.value == "Engagements":
+                    subheader_cell.fill = engagement_color
+                elif subheader_cell.value == "Non-Billables":
+                    subheader_cell.fill = non_billable_color
+                elif subheader_cell.value == "Total":
+                    subheader_cell.fill = total_color
+
+                if col > 1 and (col - 2) % 4 == 0:
+                    date_str = header_cell.value.split(' ', 1)[1]
+                    date = datetime.strptime(date_str, '%d %B %Y').date()
+                    if date in ke_holidays:
+                        header_cell.fill = holiday_fill
+                        header_cell.font = Font(bold=True, color="FFFFFFFF")
+                        ws_month.cell(row=1, column=col,
+                                      value=f"{header_cell.value} (Holiday: {ke_holidays.get(date)})")
+
+            ws_month.row_dimensions[1].height = 30
+            ws_month.row_dimensions[2].height = 25
+
+            # Start adding data from row 3
+            for idx, staff in enumerate(Staff.query.all(), start=3):
+                row_data = [staff.name]
+
+                for day in working_days:
+                    leave_record = LeaveRecord.query.filter_by(staff_id=staff.id, date=day).first()
+                    if leave_record:
+                        row_data.extend(["ON LEAVE", "", "", ""])
+                    else:
+                        logs = HoursLog.query.filter_by(staff_id=staff.id, date=day).all()
+                        daily_total = 0
+                        for category in ['proposal', 'engagement', 'non_billable']:
+                            category_logs = [log for log in logs if log.category == category]
+                            category_hours = sum([log.hours for log in category_logs])
+                            if category_hours > 0:
+                                items = []
+                                for log in category_logs:
+                                    if category == 'proposal':
+                                        item = Proposal.query.get(log.item_id)
+                                    elif category == 'engagement':
+                                        item = Engagement.query.get(log.item_id)
+                                    else:
+                                        item = NonBillable.query.get(log.item_id)
+                                    items.append(f"{item.name} ({log.hours:.2f}h)")
+                                row_data.append("\n".join(items))
+                                daily_total += category_hours
+                            else:
+                                row_data.append("")
+                        row_data.append(f"{daily_total:.2f}" if daily_total > 0 else "")
+
+                # Add the row data to the sheet
+                for col, value in enumerate(row_data, start=1):
+                    cell = ws_month.cell(row=idx, column=col, value=value)
+                    if value == "ON LEAVE":
+                        for i in range(4):
+                            leave_cell = ws_month.cell(row=idx, column=col + i)
+                            leave_cell.fill = leave_fill
+                            if i == 0:
+                                leave_cell.alignment = Alignment(horizontal='center', vertical='center')
+
+            # Apply borders and alignment to all cells
+            for row in ws_month[3:ws_month.max_row + 1]:
+                for cell in row:
+                    cell.border = border
+                    cell.alignment = Alignment(horizontal='left', vertical='center', wrap_text=True)
+
+            # Adjust column widths
+            for i, column in enumerate(ws_month.columns, 1):
+                max_length = 0
+                column = [cell for cell in column]
+                for cell in column:
+                    try:
+                        if len(str(cell.value)) > max_length:
+                            max_length = len(cell.value)
+                    except:
+                        pass
+                adjusted_width = min(max_length + 2, 30)
+                ws_month.column_dimensions[get_column_letter(i)].width = adjusted_width
+
+            ws_month.freeze_panes = "B3"
+
+            current_date = (current_date + timedelta(days=32)).replace(day=1)
+
+        # Generate the file name based on the content and current date
+        today = datetime.now().strftime('%Y-%m-%d')
+        file_name = f"Resource Mapping and Leave Days - {today}.xlsx"
+
+        output = io.BytesIO()
+        wb.save(output)
+        output.seek(0)
+
+        return send_file(output, download_name=file_name, as_attachment=True)
 
 
 
@@ -1279,128 +1521,8 @@ def thank_you(staff_id):
 
 
 
-from flask import Flask, render_template, request, redirect, url_for, flash, send_file, jsonify
-from flask_sqlalchemy import SQLAlchemy
-from openpyxl import Workbook
-from openpyxl.styles import PatternFill, Alignment, Font, Border, Side
-from openpyxl.utils import get_column_letter
-import io
-from datetime import datetime, timedelta
-import calendar
-import holidays
 
-# ... (existing code)
 
-@app.route('/edit_data', methods=['GET', 'POST'])
-def edit_data():
-    if request.method == 'POST':
-        data_type = request.form.get('type')
-        item_id = request.form.get('id')
-
-        if 'delete' in request.form:
-            delete_value = request.form.get('delete')
-            delete_type, delete_id = delete_value.split('-')
-
-            if delete_type == 'staff':
-                item = Staff.query.get(delete_id)
-            elif delete_type == 'engagement':
-                item = Engagement.query.get(delete_id)
-            elif delete_type == 'proposal':
-                item = Proposal.query.get(delete_id)
-            elif delete_type == 'non_billable':
-                item = NonBillable.query.get(delete_id)
-
-            if item:
-                db.session.delete(item)
-                db.session.commit()
-                flash(f'{delete_type.capitalize()} deleted successfully.', 'success')
-            else:
-                flash(f'{delete_type.capitalize()} not found.', 'error')
-
-        else:
-            if data_type == 'staff':
-                staff = Staff.query.get(item_id)
-                if staff:
-                    staff.name = request.form.get('name')
-                    staff.email = request.form.get('email')  # Update to use email
-                    db.session.commit()
-                    flash('Staff member updated successfully.', 'success')
-
-            elif data_type == 'engagement':
-                engagement = Engagement.query.get(item_id)
-                if engagement:
-                    old_team_leader_id = engagement.team_leader_id
-                    engagement.name = request.form.get('name')
-                    engagement.team_leader_id = request.form.get('team_leader_id')
-                    engagement.status = request.form.get('status')
-
-                    # Check if old team leader is still leading any engagement or proposal
-                    if old_team_leader_id != engagement.team_leader_id:
-                        old_team_leader = Staff.query.get(old_team_leader_id)
-                        new_team_leader = Staff.query.get(engagement.team_leader_id)
-
-                        # Check if the old team leader is leading any other engagements or proposals
-                        if not Engagement.query.filter(Engagement.team_leader_id == old_team_leader_id).filter(Engagement.id != engagement.id).count() and \
-                           not Proposal.query.filter(Proposal.team_leader_id == old_team_leader_id).count():
-                            if old_team_leader:
-                                old_team_leader.is_team_leader = False
-                                db.session.add(old_team_leader)
-
-                        # Set is_team_leader for the new team leader
-                        if new_team_leader:
-                            new_team_leader.is_team_leader = True
-                            db.session.add(new_team_leader)
-
-                    db.session.commit()
-                    flash('Engagement updated successfully.', 'success')
-
-            elif data_type == 'proposal':
-                proposal = Proposal.query.get(item_id)
-                if proposal:
-                    old_team_leader_id = proposal.team_leader_id
-                    proposal.name = request.form.get('name')
-                    proposal.team_leader_id = request.form.get('team_leader_id')
-                    proposal.status = request.form.get('status')
-
-                    # Check if old team leader is still leading any engagement or proposal
-                    if old_team_leader_id != proposal.team_leader_id:
-                        old_team_leader = Staff.query.get(old_team_leader_id)
-                        new_team_leader = Staff.query.get(proposal.team_leader_id)
-
-                        # Check if the old team leader is leading any other engagements or proposals
-                        if not Engagement.query.filter(Engagement.team_leader_id == old_team_leader_id).count() and \
-                           not Proposal.query.filter(Proposal.team_leader_id == old_team_leader_id).filter(Proposal.id != proposal.id).count():
-                            if old_team_leader:
-                                old_team_leader.is_team_leader = False
-                                db.session.add(old_team_leader)
-
-                        # Set is_team_leader for the new team leader
-                        if new_team_leader:
-                            new_team_leader.is_team_leader = True
-                            db.session.add(new_team_leader)
-
-                    db.session.commit()
-                    flash('Proposal updated successfully.', 'success')
-
-            elif data_type == 'non_billable':
-                non_billable = NonBillable.query.get(item_id)
-                if non_billable:
-                    non_billable.name = request.form.get('name')
-                    db.session.commit()
-                    flash('Non-Billable updated successfully.', 'success')
-
-        return redirect(url_for('edit_data'))
-
-    staff_members = Staff.query.all()
-    engagements = Engagement.query.all()
-    proposals = Proposal.query.all()
-    non_billables = NonBillable.query.all()
-
-    return render_template('edit_data.html',
-                           staff_members=staff_members,
-                           engagements=engagements,
-                           proposals=proposals,
-                           non_billables=non_billables)
 
 # ... (rest of the existing code)
 
@@ -1710,4 +1832,4 @@ if __name__ == '__main__':
     with app.app_context():
         db.create_all()
     app.run(debug=True)
-    
+

@@ -170,6 +170,18 @@
                                 <input type="text" class="form-control" id="engagement-name-{{ engagement.id }}" name="name" value="{{ engagement.name }}" required>
                             </div>
                             <div class="mb-3">
+                                <label for="engagement-description-{{ engagement.id }}" class="form-label">Description</label>
+                                <textarea class="form-control" id="engagement-description-{{ engagement.id }}" name="description" rows="3">{{ engagement.description }}</textarea>
+                            </div>
+                            <div class="mb-3">
+                                <label for="engagement-start-date-{{ engagement.id }}" class="form-label">Start Date</label>
+                                <input type="date" class="form-control" id="engagement-start-date-{{ engagement.id }}" name="start_date" value="{{ engagement.start_date.strftime('%Y-%m-%d') if engagement.start_date else '' }}">
+                            </div>
+                            <div class="mb-3">
+                                <label for="engagement-end-date-{{ engagement.id }}" class="form-label">End Date</label>
+                                <input type="date" class="form-control" id="engagement-end-date-{{ engagement.id }}" name="end_date" value="{{ engagement.end_date.strftime('%Y-%m-%d') if engagement.end_date else '' }}">
+                            </div>
+                            <div class="mb-3">
                                 <label for="engagement-team-leader-{{ engagement.id }}" class="form-label">Team Leader</label>
                                 <select class="form-control" id="engagement-team-leader-{{ engagement.id }}" name="team_leader_id">
                                     {% for staff in staff_members %}
@@ -205,6 +217,14 @@
                             <div class="mb-3">
                                 <label for="proposal-name-{{ proposal.id }}" class="form-label">Name</label>
                                 <input type="text" class="form-control" id="proposal-name-{{ proposal.id }}" name="name" value="{{ proposal.name }}" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="proposal-description-{{ proposal.id }}" class="form-label">Description</label>
+                                <textarea class="form-control" id="proposal-description-{{ proposal.id }}" name="description" rows="3">{{ proposal.description }}</textarea>
+                            </div>
+                            <div class="mb-3">
+                                <label for="proposal-due-date-{{ proposal.id }}" class="form-label">Due Date</label>
+                                <input type="date" class="form-control" id="proposal-due-date-{{ proposal.id }}" name="due_date" value="{{ proposal.due_date.strftime('%Y-%m-%d') if proposal.due_date else '' }}">
                             </div>
                             <div class="mb-3">
                                 <label for="proposal-team-leader-{{ proposal.id }}" class="form-label">Team Leader</label>

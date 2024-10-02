@@ -22,6 +22,15 @@ import calendar
 import holidays
 from flask import url_for, flash, redirect
 from datetime import datetime, timedelta
+from flask import render_template
+
+from datetime import timedelta
+from calendar import monthrange
+
+
+from flask import request, render_template
+from datetime import datetime, timedelta
+
 
 
 # ... (existing code)
@@ -1093,6 +1102,7 @@ def add_non_billable():
     return render_template('add_non_billable.html')
 
 
+
 @app.route('/generate_excel')
 def generate_excel():
     wb = Workbook()
@@ -1104,8 +1114,10 @@ def generate_excel():
     total_color = PatternFill(start_color="FFFFD700", end_color="FFFFD700", fill_type="solid")
     header_fill = PatternFill(start_color="FFD3D3D3", end_color="FFD3D3D3", fill_type="solid")
     leave_fill = PatternFill(start_color="D3D3D3", end_color="D3D3D3", fill_type="solid")
+    month_fill = PatternFill(start_color="FFF0E68C", end_color="FFF0E68C", fill_type="solid")
 
     header_font = Font(bold=True, size=12)
+    month_font = Font(bold=True, size=14)
     border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'),
                     bottom=Side(style='thin'))
 
@@ -1135,15 +1147,54 @@ def generate_excel():
     ws_proposals = wb.active
     ws_proposals.title = "Proposals"
     ws_proposals.append(["ID", "Name", "Team Leader", "Status", "Description", "Due Date"])
-    for proposal in Proposal.query.all():
-        ws_proposals.append([
-            proposal.id,
-            proposal.name,
-            proposal.team_leader.name if proposal.team_leader else "N/A",
-            proposal.status,
-            proposal.description,
-            proposal.due_date.strftime('%Y-%m-%d') if proposal.due_date else "N/A"
-        ])
+
+    # Get all proposals ordered by due date
+    all_proposals = Proposal.query.order_by(Proposal.due_date).all()
+
+    # Group proposals by month
+    proposals_by_month = {}
+    for proposal in all_proposals:
+        if proposal.due_date:
+            month_key = proposal.due_date.strftime('%Y-%m')
+            if month_key not in proposals_by_month:
+                proposals_by_month[month_key] = []
+            proposals_by_month[month_key].append(proposal)
+        else:
+            # Handle proposals without due dates
+            if 'No Due Date' not in proposals_by_month:
+                proposals_by_month['No Due Date'] = []
+            proposals_by_month['No Due Date'].append(proposal)
+
+    # Add proposals to the sheet, grouped by month
+    current_row = 2
+    for month, proposals in sorted(proposals_by_month.items()):
+        # Convert the month_key to a readable format (e.g., "October 2024")
+        if month != 'No Due Date':
+            month = datetime.strptime(month, '%Y-%m').strftime('%B %Y')
+
+        # Add month header
+        month_cell = ws_proposals.cell(row=current_row, column=1,
+                                       value=month if month != 'No Due Date' else 'No Due Date')
+        month_cell.font = month_font
+        month_cell.fill = month_fill
+        ws_proposals.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=6)
+        current_row += 1
+
+        for proposal in proposals:
+            ws_proposals.append([
+                proposal.id,
+                proposal.name,
+                proposal.team_leader.name if proposal.team_leader else "N/A",
+                proposal.status,
+                proposal.description,
+                proposal.due_date.strftime('%Y-%m-%d') if proposal.due_date else "N/A"
+            ])
+            current_row += 1
+
+        # Add an empty row after each month group
+        ws_proposals.append([])
+        current_row += 1
+
     style_sheet(ws_proposals, proposal_color)
 
     # Engagements sheet
@@ -1265,254 +1316,252 @@ def generate_excel():
         adjusted_width = min(max_length + 2, 30)
         ws_staff.column_dimensions[column_letter].width = adjusted_width
 
-        # Utilizations sheet
-        ws_utilizations = wb.create_sheet("Utilizations")
+    # Utilizations sheet
+    ws_utilizations = wb.create_sheet("Utilizations")
 
-        # Color definitions
-        header_fill = PatternFill(start_color="FFD3D3D3", end_color="FFD3D3D3", fill_type="solid")
+    # Color definitions
+    header_fill = PatternFill(start_color="FFD3D3D3", end_color="FFD3D3D3", fill_type="solid")
+    subheader_fill = PatternFill(start_color="FFF0F0F0", end_color="FFF0F0F0", fill_type="solid")
+    data_fill_1 = PatternFill(start_color="FFDDEEFF", end_color="FFDDEEFF", fill_type="solid")
+    data_fill_2 = PatternFill(start_color="FFFFEECC", end_color="FFFFEECC", fill_type="solid")
+
+    headers = ["Staff Name", "Week Start", "Client Utilization YTD", "Client Utilization MTD",
+               "Resource Utilization YTD", "Resource Utilization MTD"]
+
+    # Get all unique months from Utilization
+    unique_months = db.session.query(
+        db.func.strftime('%Y-%m', Utilization.week_start).label('month')
+    ).distinct().order_by('month').all()
+
+    current_row = 1
+
+    for month_tuple in unique_months:
+        month = datetime.strptime(month_tuple[0], '%Y-%m')
+        month_start = month.replace(day=1)
+        month_end = (month_start + timedelta(days=32)).replace(day=1) - timedelta(days=1)
+
+        # Add month header
+        month_cell = ws_utilizations.cell(row=current_row, column=1, value=f"Month: {month.strftime('%B %Y')}")
+        month_cell.font = Font(bold=True, size=14)
+        ws_utilizations.merge_cells(start_row=current_row, start_column=1, end_row=current_row,
+                                    end_column=len(headers))
+        current_row += 1
+
+        # Add column headers
+        for col, header in enumerate(headers, start=1):
+            cell = ws_utilizations.cell(row=current_row, column=col, value=header)
+            cell.fill = header_fill
+            cell.font = Font(bold=True)
+            cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        current_row += 1
+
+        utilizations = Utilization.query.filter(
+            Utilization.week_start >= month_start,
+            Utilization.week_start <= month_end
+        ).order_by(Utilization.staff_id, Utilization.week_start).all()
+
+        row_color = cycle([data_fill_1, data_fill_2])
+
+        for utilization in utilizations:
+            row_data = [
+                utilization.staff.name,
+                utilization.week_start.strftime('%Y-%m-%d'),
+                f"{utilization.client_utilization_year_to_date:.2f}%",
+                f"{utilization.client_utilization_month_to_date:.2f}%",
+                f"{utilization.resource_utilization_year_to_date:.2f}%",
+                f"{utilization.resource_utilization_month_to_date:.2f}%"
+            ]
+
+            current_fill = next(row_color)
+            for col, value in enumerate(row_data, start=1):
+                cell = ws_utilizations.cell(row=current_row, column=col, value=value)
+                cell.border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'),
+                                     bottom=Side(style='thin'))
+                cell.alignment = Alignment(horizontal='center', vertical='center')
+                cell.fill = current_fill
+
+            current_row += 1
+
+        current_row += 2  # Add space between months
+
+    # Adjust column widths for Utilizations sheet
+    for col in range(1, ws_utilizations.max_column + 1):
+        max_length = 0
+        column_letter = get_column_letter(col)
+        for cell in ws_utilizations[column_letter]:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(cell.value)
+            except:
+                pass
+        adjusted_width = max(max_length + 2, 15)  # Minimum width of 15
+        ws_utilizations.column_dimensions[column_letter].width = adjusted_width
+
+    # Set row height
+    for row in ws_utilizations.iter_rows():
+        ws_utilizations.row_dimensions[row[0].row].height = 20
+
+    # Freeze panes
+    ws_utilizations.freeze_panes = 'A3'
+
+    # Generate monthly sheets
+    ke_holidays = holidays.KE()
+
+    earliest_date = db.session.query(db.func.min(HoursLog.date)).scalar()
+    if earliest_date is None:
+        earliest_date = datetime.now().date().replace(day=1)
+
+    current_year = datetime.now().year
+    if datetime.now().month > 6:
+        end_financial_year = datetime(current_year + 1, 6, 30).date()
+    else:
+        end_financial_year = datetime(current_year, 6, 30).date()
+
+    current_date = earliest_date.replace(day=1)
+    while current_date <= end_financial_year:
+        month_name = current_date.strftime('%B %Y')
+        ws_month = wb.create_sheet(month_name)
+
+        header_fill = PatternFill(start_color="FFD3D3D3", end_color="FFD3D3D3",fill_type="solid")
         subheader_fill = PatternFill(start_color="FFF0F0F0", end_color="FFF0F0F0", fill_type="solid")
-        data_fill_1 = PatternFill(start_color="FFDDEEFF", end_color="FFDDEEFF", fill_type="solid")
-        data_fill_2 = PatternFill(start_color="FFFFEECC", end_color="FFFFEECC", fill_type="solid")
+        holiday_fill = PatternFill(start_color="FFFF0000", end_color="FFFF0000", fill_type="solid")
+        border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'),
+                        bottom=Side(style='thin'))
+        header_font = Font(bold=True, size=12)
+        subheader_font = Font(bold=True, size=11)
 
-        headers = ["Staff Name", "Week Start", "Client Utilization YTD", "Client Utilization MTD",
-                   "Resource Utilization YTD", "Resource Utilization MTD"]
+        columns = ["Staff Name"]
+        categories = ["Proposals", "Engagements", "Non-Billables", "Total"]
 
-        # Get all unique months from Utilization
-        unique_months = db.session.query(
-            db.func.strftime('%Y-%m', Utilization.week_start).label('month')
-        ).distinct().order_by('month').all()
+        working_days = []
+        month_end = current_date.replace(day=calendar.monthrange(current_date.year, current_date.month)[1])
+        current = max(current_date, earliest_date)
+        while current <= month_end:
+            if current.weekday() < 5:
+                working_days.append(current)
+            current += timedelta(days=1)
 
-        current_row = 1
+        for day in working_days:
+            date_header = f"{day.strftime('%A %d %B %Y')}"
+            columns.extend([date_header] + ['' for _ in range(len(categories) - 1)])
+        ws_month.append(columns)
 
-        for month_tuple in unique_months:
-            month = datetime.strptime(month_tuple[0], '%Y-%m')
-            month_start = month.replace(day=1)
-            month_end = (month_start + timedelta(days=32)).replace(day=1) - timedelta(days=1)
+        sub_headers = [""]
+        for _ in range(len(working_days)):
+            sub_headers.extend(categories)
+        ws_month.append(sub_headers)
 
-            # Add month header
-            month_cell = ws_utilizations.cell(row=current_row, column=1, value=f"Month: {month.strftime('%B %Y')}")
-            month_cell.font = Font(bold=True, size=14)
-            ws_utilizations.merge_cells(start_row=current_row, start_column=1, end_row=current_row,
-                                        end_column=len(headers))
-            current_row += 1
-
-            # Add column headers
-            for col, header in enumerate(headers, start=1):
-                cell = ws_utilizations.cell(row=current_row, column=col, value=header)
-                cell.fill = header_fill
-                cell.font = Font(bold=True)
+        # Style and format headers
+        for row in ws_month[1:3]:
+            for cell in row:
+                cell.border = border
                 cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
-            current_row += 1
 
-            utilizations = Utilization.query.filter(
-                Utilization.week_start >= month_start,
-                Utilization.week_start <= month_end
-            ).order_by(Utilization.staff_id, Utilization.week_start).all()
+        for col in range(1, len(columns) + 1):
+            header_cell = ws_month.cell(row=1, column=col)
+            subheader_cell = ws_month.cell(row=2, column=col)
 
-            row_color = cycle([data_fill_1, data_fill_2])
+            header_cell.fill = header_fill
+            header_cell.font = header_font
+            subheader_cell.fill = subheader_fill
+            subheader_cell.font = subheader_font
 
-            for utilization in utilizations:
-                row_data = [
-                    utilization.staff.name,
-                    utilization.week_start.strftime('%Y-%m-%d'),
-                    f"{utilization.client_utilization_year_to_date:.2f}%",
-                    f"{utilization.client_utilization_month_to_date:.2f}%",
-                    f"{utilization.resource_utilization_year_to_date:.2f}%",
-                    f"{utilization.resource_utilization_month_to_date:.2f}%"
-                ]
+            if col > 1 and (col - 2) % 4 == 0:
+                ws_month.merge_cells(start_row=1, start_column=col, end_row=1, end_column=col + 3)
 
-                current_fill = next(row_color)
-                for col, value in enumerate(row_data, start=1):
-                    cell = ws_utilizations.cell(row=current_row, column=col, value=value)
-                    cell.border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'),
-                                         bottom=Side(style='thin'))
-                    cell.alignment = Alignment(horizontal='center', vertical='center')
-                    cell.fill = current_fill
+            if subheader_cell.value == "Proposals":
+                subheader_cell.fill = proposal_color
+            elif subheader_cell.value == "Engagements":
+                subheader_cell.fill = engagement_color
+            elif subheader_cell.value == "Non-Billables":
+                subheader_cell.fill = non_billable_color
+            elif subheader_cell.value == "Total":
+                subheader_cell.fill = total_color
 
-                current_row += 1
+            if col > 1 and (col - 2) % 4 == 0:
+                date_str = header_cell.value.split(' ', 1)[1]
+                date = datetime.strptime(date_str, '%d %B %Y').date()
+                if date in ke_holidays:
+                    header_cell.fill = holiday_fill
+                    header_cell.font = Font(bold=True, color="FFFFFFFF")
+                    ws_month.cell(row=1, column=col,
+                                  value=f"{header_cell.value} (Holiday: {ke_holidays.get(date)})")
 
-            current_row += 2  # Add space between months
+        ws_month.row_dimensions[1].height = 30
+        ws_month.row_dimensions[2].height = 25
 
-            # Adjust column widths for Utilizations sheet
-        for col in range(1, ws_utilizations.max_column + 1):
+        # Start adding data from row 3
+        for idx, staff in enumerate(Staff.query.all(), start=3):
+            row_data = [staff.name]
+
+            for day in working_days:
+                leave_record = LeaveRecord.query.filter_by(staff_id=staff.id, date=day).first()
+                if leave_record:
+                    row_data.extend(["ON LEAVE", "", "", ""])
+                else:
+                    logs = HoursLog.query.filter_by(staff_id=staff.id, date=day).all()
+                    daily_total = 0
+                    for category in ['proposal', 'engagement', 'non_billable']:
+                        category_logs = [log for log in logs if log.category == category]
+                        category_hours = sum([log.hours for log in category_logs])
+                        if category_hours > 0:
+                            items = []
+                            for log in category_logs:
+                                if category == 'proposal':
+                                    item = Proposal.query.get(log.item_id)
+                                elif category == 'engagement':
+                                    item = Engagement.query.get(log.item_id)
+                                else:
+                                    item = NonBillable.query.get(log.item_id)
+                                items.append(f"{item.name} ({log.hours:.2f}h)")
+                            row_data.append("\n".join(items))
+                            daily_total += category_hours
+                        else:
+                            row_data.append("")
+                    row_data.append(f"{daily_total:.2f}" if daily_total > 0 else "")
+
+            # Add the row data to the sheet
+            for col, value in enumerate(row_data, start=1):
+                cell = ws_month.cell(row=idx, column=col, value=value)
+                if value == "ON LEAVE":
+                    for i in range(4):
+                        leave_cell = ws_month.cell(row=idx, column=col + i)
+                        leave_cell.fill = leave_fill
+                        if i == 0:
+                            leave_cell.alignment = Alignment(horizontal='center', vertical='center')
+
+        # Apply borders and alignment to all cells
+        for row in ws_month[3:ws_month.max_row + 1]:
+            for cell in row:
+                cell.border = border
+                cell.alignment = Alignment(horizontal='left', vertical='center', wrap_text=True)
+
+        # Adjust column widths
+        for i, column in enumerate(ws_month.columns, 1):
             max_length = 0
-            column_letter = get_column_letter(col)
-            for cell in ws_utilizations[column_letter]:
+            column = [cell for cell in column]
+            for cell in column:
                 try:
                     if len(str(cell.value)) > max_length:
                         max_length = len(cell.value)
                 except:
                     pass
-            adjusted_width = max(max_length + 2, 15)  # Minimum width of 15
-            ws_utilizations.column_dimensions[column_letter].width = adjusted_width
+            adjusted_width = min(max_length + 2, 30)
+            ws_month.column_dimensions[get_column_letter(i)].width = adjusted_width
 
-            # Set row height
-        for row in ws_utilizations.iter_rows():
-            ws_utilizations.row_dimensions[row[0].row].height = 20
+        ws_month.freeze_panes = "B3"
 
-            # Freeze panes
-        ws_utilizations.freeze_panes = 'A3'
+        current_date = (current_date + timedelta(days=32)).replace(day=1)
 
-        # Generate monthly sheets
-        ke_holidays = holidays.KE()
+    # Generate the file name based on the content and current date
+    today = datetime.now().strftime('%Y-%m-%d')
+    file_name = f"Resource Mapping and Leave Days - {today}.xlsx"
 
-        earliest_date = db.session.query(db.func.min(HoursLog.date)).scalar()
-        if earliest_date is None:
-            earliest_date = datetime.now().date().replace(day=1)
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
 
-        current_year = datetime.now().year
-        if datetime.now().month > 6:
-            end_financial_year = datetime(current_year + 1, 6, 30).date()
-        else:
-            end_financial_year = datetime(current_year, 6, 30).date()
-
-        current_date = earliest_date.replace(day=1)
-        while current_date <= end_financial_year:
-            month_name = current_date.strftime('%B %Y')
-            ws_month = wb.create_sheet(month_name)
-
-            header_fill = PatternFill(start_color="FFD3D3D3", end_color="FFD3D3D3", fill_type="solid")
-            subheader_fill = PatternFill(start_color="FFF0F0F0", end_color="FFF0F0F0", fill_type="solid")
-            holiday_fill = PatternFill(start_color="FFFF0000", end_color="FFFF0000", fill_type="solid")
-            border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'),
-                            bottom=Side(style='thin'))
-            header_font = Font(bold=True, size=12)
-            subheader_font = Font(bold=True, size=11)
-
-            columns = ["Staff Name"]
-            categories = ["Proposals", "Engagements", "Non-Billables", "Total"]
-
-            working_days = []
-            month_end = current_date.replace(day=calendar.monthrange(current_date.year, current_date.month)[1])
-            current = max(current_date, earliest_date)
-            while current <= month_end:
-                if current.weekday() < 5:
-                    working_days.append(current)
-                current += timedelta(days=1)
-
-            for day in working_days:
-                date_header = f"{day.strftime('%A %d %B %Y')}"
-                columns.extend([date_header] + ['' for _ in range(len(categories) - 1)])
-            ws_month.append(columns)
-
-            sub_headers = [""]
-            for _ in range(len(working_days)):
-                sub_headers.extend(categories)
-            ws_month.append(sub_headers)
-
-            # Style and format headers
-            for row in ws_month[1:3]:
-                for cell in row:
-                    cell.border = border
-                    cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
-
-            for col in range(1, len(columns) + 1):
-                header_cell = ws_month.cell(row=1, column=col)
-                subheader_cell = ws_month.cell(row=2, column=col)
-
-                header_cell.fill = header_fill
-                header_cell.font = header_font
-                subheader_cell.fill = subheader_fill
-                subheader_cell.font = subheader_font
-
-                if col > 1 and (col - 2) % 4 == 0:
-                    ws_month.merge_cells(start_row=1, start_column=col, end_row=1, end_column=col + 3)
-
-                if subheader_cell.value == "Proposals":
-                    subheader_cell.fill = proposal_color
-                elif subheader_cell.value == "Engagements":
-                    subheader_cell.fill = engagement_color
-                elif subheader_cell.value == "Non-Billables":
-                    subheader_cell.fill = non_billable_color
-                elif subheader_cell.value == "Total":
-                    subheader_cell.fill = total_color
-
-                if col > 1 and (col - 2) % 4 == 0:
-                    date_str = header_cell.value.split(' ', 1)[1]
-                    date = datetime.strptime(date_str, '%d %B %Y').date()
-                    if date in ke_holidays:
-                        header_cell.fill = holiday_fill
-                        header_cell.font = Font(bold=True, color="FFFFFFFF")
-                        ws_month.cell(row=1, column=col,
-                                      value=f"{header_cell.value} (Holiday: {ke_holidays.get(date)})")
-
-            ws_month.row_dimensions[1].height = 30
-            ws_month.row_dimensions[2].height = 25
-
-            # Start adding data from row 3
-            for idx, staff in enumerate(Staff.query.all(), start=3):
-                row_data = [staff.name]
-
-                for day in working_days:
-                    leave_record = LeaveRecord.query.filter_by(staff_id=staff.id, date=day).first()
-                    if leave_record:
-                        row_data.extend(["ON LEAVE", "", "", ""])
-                    else:
-                        logs = HoursLog.query.filter_by(staff_id=staff.id, date=day).all()
-                        daily_total = 0
-                        for category in ['proposal', 'engagement', 'non_billable']:
-                            category_logs = [log for log in logs if log.category == category]
-                            category_hours = sum([log.hours for log in category_logs])
-                            if category_hours > 0:
-                                items = []
-                                for log in category_logs:
-                                    if category == 'proposal':
-                                        item = Proposal.query.get(log.item_id)
-                                    elif category == 'engagement':
-                                        item = Engagement.query.get(log.item_id)
-                                    else:
-                                        item = NonBillable.query.get(log.item_id)
-                                    items.append(f"{item.name} ({log.hours:.2f}h)")
-                                row_data.append("\n".join(items))
-                                daily_total += category_hours
-                            else:
-                                row_data.append("")
-                        row_data.append(f"{daily_total:.2f}" if daily_total > 0 else "")
-
-                # Add the row data to the sheet
-                for col, value in enumerate(row_data, start=1):
-                    cell = ws_month.cell(row=idx, column=col, value=value)
-                    if value == "ON LEAVE":
-                        for i in range(4):
-                            leave_cell = ws_month.cell(row=idx, column=col + i)
-                            leave_cell.fill = leave_fill
-                            if i == 0:
-                                leave_cell.alignment = Alignment(horizontal='center', vertical='center')
-
-            # Apply borders and alignment to all cells
-            for row in ws_month[3:ws_month.max_row + 1]:
-                for cell in row:
-                    cell.border = border
-                    cell.alignment = Alignment(horizontal='left', vertical='center', wrap_text=True)
-
-            # Adjust column widths
-            for i, column in enumerate(ws_month.columns, 1):
-                max_length = 0
-                column = [cell for cell in column]
-                for cell in column:
-                    try:
-                        if len(str(cell.value)) > max_length:
-                            max_length = len(cell.value)
-                    except:
-                        pass
-                adjusted_width = min(max_length + 2, 30)
-                ws_month.column_dimensions[get_column_letter(i)].width = adjusted_width
-
-            ws_month.freeze_panes = "B3"
-
-            current_date = (current_date + timedelta(days=32)).replace(day=1)
-
-        # Generate the file name based on the content and current date
-        today = datetime.now().strftime('%Y-%m-%d')
-        file_name = f"Resource Mapping and Leave Days - {today}.xlsx"
-
-        output = io.BytesIO()
-        wb.save(output)
-        output.seek(0)
-
-        return send_file(output, download_name=file_name, as_attachment=True)
-
-
+    return send_file(output, download_name=file_name, as_attachment=True)
 
 @app.route('/thank_you/<int:staff_id>')
 def thank_you(staff_id):
@@ -1817,14 +1866,6 @@ def view_logs(staff_id):
                            Engagement=Engagement, NonBillable=NonBillable, logs=logs)
 
 
-from flask import render_template
-
-from datetime import timedelta
-from calendar import monthrange
-
-
-from flask import request, render_template
-from datetime import datetime, timedelta
 
 
 
@@ -1832,4 +1873,3 @@ if __name__ == '__main__':
     with app.app_context():
         db.create_all()
     app.run(debug=True)
-

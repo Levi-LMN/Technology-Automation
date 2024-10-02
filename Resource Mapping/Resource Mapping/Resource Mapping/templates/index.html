@@ -1,16 +1,22 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Home Page</title>
-  <!-- Bootstrap CSS -->
+
+
+
+<body >
+  <!-- extends base HTML template -->
+  {% extends 'base.html' %}
+
+
+
+  <!-- override content section -->
+  {% block content %}
+
+      <!-- Bootstrap CSS -->
   <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
   <!-- Font Awesome CSS -->
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" rel="stylesheet">
   <!-- Custom CSS -->
   <style>
-    
+
     /* Custom button styles */
     .btn-custom {
       background: linear-gradient(135deg, #495057 0%, #3c3f42 100%);
@@ -62,13 +68,6 @@
       color: #594223; /* Lighter shade on hover for interaction */
     }
   </style>
-</head>
-<body >
-  <!-- extends base HTML template -->
-  {% extends 'base.html' %}
-
-  <!-- override content section -->
-  {% block content %}
     <div class="container py-5">
       <h1 class="text-center mb-5 font-weight-bold display-3">Home Page</h1>
       <div class="row justify-content-center">
